@@ -1,0 +1,20 @@
+# Environment — never commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
