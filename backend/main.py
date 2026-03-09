@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import time
 import tempfile
 import google.generativeai as genai
 from fastapi import FastAPI, UploadFile, File, HTTPException
@@ -127,6 +128,14 @@ async def analyse_video(file: UploadFile = File(...)):
         video_metadata = extract_video_metadata(tmp_path)
 
         uploaded = genai.upload_file(tmp_path, mime_type=file.content_type)
+
+        # Wait for file to become ACTIVE before using it
+        while uploaded.state.name == "PROCESSING":
+            time.sleep(2)
+            uploaded = genai.get_file(uploaded.name)
+
+        if uploaded.state.name != "ACTIVE":
+            raise RuntimeError(f"Uploaded file entered state {uploaded.state.name!r}")
 
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content([ANALYSIS_PROMPT, uploaded])
