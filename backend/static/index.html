@@ -266,16 +266,35 @@
       statusEl.textContent = "";
     }
 
+    function getBrowserLocation() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+          ()    => resolve(null),
+          { timeout: 8000, maximumAge: 300000 }
+        );
+      });
+    }
+
     analyseBtn.addEventListener("click", async () => {
       const file = window._selectedFile;
       if (!file) return;
 
       analyseBtn.disabled = true;
       resultEl.style.display = "none";
+      setStatus("Getting location…", true);
+
+      const location = await getBrowserLocation();
+
       setStatus("Uploading and analysing — this may take a moment…", true);
 
       const formData = new FormData();
       formData.append("file", file);
+      if (location) {
+        formData.append("browser_lat", location.lat);
+        formData.append("browser_lon", location.lon);
+      }
 
       try {
         const resp = await fetch("/analyse", { method: "POST", body: formData });
@@ -337,9 +356,10 @@
         const lat = meta.latitude.toFixed(6);
         const lon = meta.longitude.toFixed(6);
         const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+        const sourceLabel = meta.location_source === "browser" ? " <span style='font-weight:400;color:#888;'>(from browser)</span>" : "";
         gpsHtml = `
           <div class="meta-item" style="grid-column: 1 / -1;">
-            <div class="field-label">GPS Location</div>
+            <div class="field-label">GPS Location${sourceLabel}</div>
             <div class="field-value">${lat}, ${lon}
               <a class="meta-map-link" href="${mapsUrl}" target="_blank" rel="noopener">
                 &#x1F4CD; View on map
