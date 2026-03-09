@@ -132,12 +132,16 @@ async def analyse_video(file: UploadFile = File(...)):
         response = model.generate_content([ANALYSIS_PROMPT, uploaded])
 
         raw_text = response.text.strip()
+        # Strip markdown code fences that Gemini occasionally adds
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
+            raw_text = re.sub(r"\s*```$", "", raw_text).strip()
         result = json.loads(raw_text)
         result["video_metadata"] = video_metadata
         return result
     except json.JSONDecodeError:
         raise HTTPException(
-            status_code=502,
+            status_code=422,
             detail=f"Gemini returned non-JSON response: {raw_text[:300]}",
         )
     except Exception as exc:
