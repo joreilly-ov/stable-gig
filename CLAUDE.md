@@ -35,7 +35,9 @@ uvicorn main:app --reload --port 8000
 
 ## Deploying to Cloud Run (manual)
 
-Replace `PROJECT_ID`, `REGION`, and `SERVICE_NAME` with your values.
+- **Project:** `gen-lang-client-0428658103`
+- **Region:** `europe-west1`
+- **Service:** `stable-gig`
 
 ### First-time setup
 
@@ -44,34 +46,34 @@ Replace `PROJECT_ID`, `REGION`, and `SERVICE_NAME` with your values.
 echo -n "YOUR_GEMINI_API_KEY" | \
   gcloud secrets create GEMINI_API_KEY \
     --data-file=- \
-    --project=PROJECT_ID
+    --project=gen-lang-client-0428658103
 
 # 2. Build and push the container image
 gcloud builds submit backend/ \
-  --tag gcr.io/PROJECT_ID/SERVICE_NAME \
-  --project=PROJECT_ID
+  --tag gcr.io/gen-lang-client-0428658103/stable-gig \
+  --project=gen-lang-client-0428658103
 
 # 3. Deploy to Cloud Run
-gcloud run deploy SERVICE_NAME \
-  --image gcr.io/PROJECT_ID/SERVICE_NAME \
+gcloud run deploy stable-gig \
+  --image gcr.io/gen-lang-client-0428658103/stable-gig \
   --platform managed \
-  --region REGION \
+  --region europe-west1 \
   --allow-unauthenticated \
   --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest \
-  --project=PROJECT_ID
+  --project=gen-lang-client-0428658103
 ```
 
 ### Subsequent deploys (after code changes)
 
 ```bash
 gcloud builds submit backend/ \
-  --tag gcr.io/PROJECT_ID/SERVICE_NAME \
-  --project=PROJECT_ID && \
-gcloud run deploy SERVICE_NAME \
-  --image gcr.io/PROJECT_ID/SERVICE_NAME \
+  --tag gcr.io/gen-lang-client-0428658103/stable-gig \
+  --project=gen-lang-client-0428658103 && \
+gcloud run deploy stable-gig \
+  --image gcr.io/gen-lang-client-0428658103/stable-gig \
   --platform managed \
-  --region REGION \
-  --project=PROJECT_ID
+  --region europe-west1 \
+  --project=gen-lang-client-0428658103
 ```
 
 ### Updating the secret
@@ -80,6 +82,6 @@ gcloud run deploy SERVICE_NAME \
 echo -n "NEW_KEY" | \
   gcloud secrets versions add GEMINI_API_KEY \
     --data-file=- \
-    --project=PROJECT_ID
+    --project=gen-lang-client-0428658103
 # Then redeploy so Cloud Run picks up the new version.
 ```
