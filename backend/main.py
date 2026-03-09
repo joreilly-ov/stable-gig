@@ -128,7 +128,7 @@ async def analyse_video(file: UploadFile = File(...)):
 
         uploaded = genai.upload_file(tmp_path, mime_type=file.content_type)
 
-        model = genai.GenerativeModel("gemini-3.1-flash-lite")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content([ANALYSIS_PROMPT, uploaded])
 
         raw_text = response.text.strip()
