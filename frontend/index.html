@@ -165,6 +165,33 @@
       font-size: 0.95rem;
     }
 
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem 1.5rem;
+      background: #f8faff;
+      border: 1px solid #e0e7ff;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .meta-item {}
+
+    .meta-item .field-label { margin-bottom: 0.15rem; }
+
+    .meta-item .field-value { font-size: 0.85rem; }
+
+    .meta-map-link {
+      display: inline-block;
+      margin-top: 0.3rem;
+      font-size: 0.8rem;
+      color: #4a6cf7;
+      text-decoration: none;
+    }
+
+    .meta-map-link:hover { text-decoration: underline; }
+
     .error-box {
       background: #fee2e2;
       color: #991b1b;
@@ -275,6 +302,64 @@
         : msg;
     }
 
+    function renderMetadata(meta) {
+      if (!meta || Object.keys(meta).length === 0) return "";
+
+      const items = [];
+
+      if (meta.recorded_at) {
+        items.push({ label: "Recorded", value: esc(meta.recorded_at) });
+      }
+      if (meta.duration_seconds != null) {
+        const mins = Math.floor(meta.duration_seconds / 60);
+        const secs = (meta.duration_seconds % 60).toFixed(1);
+        items.push({ label: "Duration", value: mins > 0 ? `${mins}m ${secs}s` : `${secs}s` });
+      }
+      if (meta.resolution) {
+        items.push({ label: "Resolution", value: esc(meta.resolution) });
+      }
+      if (meta.frame_rate_fps != null) {
+        items.push({ label: "Frame Rate", value: `${meta.frame_rate_fps} fps` });
+      }
+      if (meta.device_make || meta.device_model) {
+        const device = [meta.device_make, meta.device_model].filter(Boolean).map(esc).join(" ");
+        items.push({ label: "Device", value: device });
+      }
+
+      let gpsHtml = "";
+      if (meta.latitude != null && meta.longitude != null) {
+        const lat = meta.latitude.toFixed(6);
+        const lon = meta.longitude.toFixed(6);
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+        gpsHtml = `
+          <div class="meta-item" style="grid-column: 1 / -1;">
+            <div class="field-label">GPS Location</div>
+            <div class="field-value">${lat}, ${lon}
+              <a class="meta-map-link" href="${mapsUrl}" target="_blank" rel="noopener">
+                &#x1F4CD; View on map
+              </a>
+            </div>
+          </div>`;
+      }
+
+      if (items.length === 0 && !gpsHtml) return "";
+
+      const gridItems = items.map(i => `
+        <div class="meta-item">
+          <div class="field-label">${i.label}</div>
+          <div class="field-value">${i.value}</div>
+        </div>`).join("");
+
+      return `
+        <div class="field">
+          <div class="field-label">Video Metadata</div>
+          <div class="meta-grid">
+            ${gridItems}
+            ${gpsHtml}
+          </div>
+        </div>`;
+    }
+
     function renderResult(data) {
       const urgencyClass = `urgency-${(data.urgency || "low").toLowerCase().replace(/\s+/g, "")}`;
 
@@ -288,6 +373,8 @@
 
       resultEl.innerHTML = `
         <h2>Assessment Result</h2>
+
+        ${renderMetadata(data.video_metadata)}
 
         <div class="field">
           <div class="field-label">Problem Type</div>
