@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Home Repair Analyser</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 2rem;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      margin-bottom: 1.25rem;
+    }
+
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: #4a6cf7;
+    }
+
+    .upload-area input[type="file"] {
+      display: none;
+    }
+
+    .upload-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-label {
+      font-size: 0.95rem;
+      color: #555;
+    }
+
+    .file-name {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: #4a6cf7;
+      font-weight: 500;
+    }
+
+    button#analyse-btn {
+      width: 100%;
+      padding: 0.85rem;
+      background: #4a6cf7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button#analyse-btn:hover:not(:disabled) {
+      background: #3a5ce5;
+    }
+
+    button#analyse-btn:disabled {
+      background: #a0aec0;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: #555;
+      min-height: 1.2em;
+    }
+
+    #result {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    #result h2 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .field {
+      margin-bottom: 1rem;
+    }
+
+    .field-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      margin-bottom: 0.3rem;
+    }
+
+    .field-value {
+      font-size: 0.95rem;
+      color: #222;
+      line-height: 1.5;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .urgency-low      { background: #d1fae5; color: #065f46; }
+    .urgency-medium   { background: #fef9c3; color: #713f12; }
+    .urgency-high     { background: #fee2e2; color: #991b1b; }
+    .urgency-emergency{ background: #7f1d1d; color: #fff; }
+
+    .pill {
+      display: inline-block;
+      background: #e0e7ff;
+      color: #3730a3;
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      font-size: 0.8rem;
+      margin: 0.2rem 0.2rem 0 0;
+    }
+
+    .question-list {
+      padding-left: 1.25rem;
+    }
+
+    .question-list li {
+      margin-bottom: 0.35rem;
+      font-size: 0.95rem;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem 1.5rem;
+      background: #f8faff;
+      border: 1px solid #e0e7ff;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .meta-item {}
+
+    .meta-item .field-label { margin-bottom: 0.15rem; }
+
+    .meta-item .field-value { font-size: 0.85rem; }
+
+    .meta-map-link {
+      display: inline-block;
+      margin-top: 0.3rem;
+      font-size: 0.8rem;
+      color: #4a6cf7;
+      text-decoration: none;
+    }
+
+    .meta-map-link:hover { text-decoration: underline; }
+
+    .error-box {
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ccc;
+      border-top-color: #4a6cf7;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h1>Home Repair Analyser</h1>
+  <p class="subtitle">Upload a video of your repair issue for an instant AI assessment</p>
+
+  <div class="card">
+    <div class="upload-area" id="drop-zone">
+      <input type="file" id="video-input" accept="video/*" />
+      <div class="upload-icon">&#127916;</div>
+      <div class="upload-label">Click to choose a video, or drag &amp; drop here</div>
+      <div class="file-name" id="file-name"></div>
+    </div>
+
+    <button id="analyse-btn" disabled>Analyse Video</button>
+    <div id="status"></div>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const dropZone   = document.getElementById("drop-zone");
+    const videoInput = document.getElementById("video-input");
+    const fileLabel  = document.getElementById("file-name");
+    const analyseBtn = document.getElementById("analyse-btn");
+    const statusEl   = document.getElementById("status");
+    const resultEl   = document.getElementById("result");
+
+    // Click on drop zone opens file picker
+    dropZone.addEventListener("click", () => videoInput.click());
+
+    videoInput.addEventListener("change", () => {
+      if (videoInput.files.length) onFileSelected(videoInput.files[0]);
+    });
+
+    // Drag & drop
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("video/")) onFileSelected(file);
+    });
+
+    function onFileSelected(file) {
+      fileLabel.textContent = file.name;
+      analyseBtn.disabled = false;
+      analyseBtn.dataset.file = "ready";
+      window._selectedFile = file;
+      resultEl.style.display = "none";
+      statusEl.textContent = "";
+    }
+
+    analyseBtn.addEventListener("click", async () => {
+      const file = window._selectedFile;
+      if (!file) return;
+
+      analyseBtn.disabled = true;
+      resultEl.style.display = "none";
+      setStatus("Uploading and analysing — this may take a moment…", true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const resp = await fetch("/analyse", { method: "POST", body: formData });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          throw new Error(data.detail || `Server error ${resp.status}`);
+        }
+
+        setStatus("");
+        renderResult(data);
+      } catch (err) {
+        setStatus("");
+        renderError(err.message);
+      } finally {
+        analyseBtn.disabled = false;
+      }
+    });
+
+    function setStatus(msg, spinner = false) {
+      if (!msg) { statusEl.textContent = ""; return; }
+      statusEl.innerHTML = spinner
+        ? `<span class="spinner"></span>${msg}`
+        : msg;
+    }
+
+    function renderMetadata(meta) {
+      if (!meta || Object.keys(meta).length === 0) return "";
+
+      const items = [];
+
+      if (meta.recorded_at) {
+        items.push({ label: "Recorded", value: esc(meta.recorded_at) });
+      }
+      if (meta.duration_seconds != null) {
+        const mins = Math.floor(meta.duration_seconds / 60);
+        const secs = (meta.duration_seconds % 60).toFixed(1);
+        items.push({ label: "Duration", value: mins > 0 ? `${mins}m ${secs}s` : `${secs}s` });
+      }
+      if (meta.resolution) {
+        items.push({ label: "Resolution", value: esc(meta.resolution) });
+      }
+      if (meta.frame_rate_fps != null) {
+        items.push({ label: "Frame Rate", value: `${meta.frame_rate_fps} fps` });
+      }
+      if (meta.device_make || meta.device_model) {
+        const device = [meta.device_make, meta.device_model].filter(Boolean).map(esc).join(" ");
+        items.push({ label: "Device", value: device });
+      }
+
+      let gpsHtml = "";
+      if (meta.latitude != null && meta.longitude != null) {
+        const lat = meta.latitude.toFixed(6);
+        const lon = meta.longitude.toFixed(6);
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+        gpsHtml = `
+          <div class="meta-item" style="grid-column: 1 / -1;">
+            <div class="field-label">GPS Location</div>
+            <div class="field-value">${lat}, ${lon}
+              <a class="meta-map-link" href="${mapsUrl}" target="_blank" rel="noopener">
+                &#x1F4CD; View on map
+              </a>
+            </div>
+          </div>`;
+      }
+
+      if (items.length === 0 && !gpsHtml) return "";
+
+      const gridItems = items.map(i => `
+        <div class="meta-item">
+          <div class="field-label">${i.label}</div>
+          <div class="field-value">${i.value}</div>
+        </div>`).join("");
+
+      return `
+        <div class="field">
+          <div class="field-label">Video Metadata</div>
+          <div class="meta-grid">
+            ${gridItems}
+            ${gpsHtml}
+          </div>
+        </div>`;
+    }
+
+    function renderResult(data) {
+      const urgencyClass = `urgency-${(data.urgency || "low").toLowerCase().replace(/\s+/g, "")}`;
+
+      const materials = Array.isArray(data.materials_involved)
+        ? data.materials_involved.map(m => `<span class="pill">${esc(m)}</span>`).join("")
+        : esc(data.materials_involved || "—");
+
+      const questions = Array.isArray(data.clarifying_questions)
+        ? `<ul class="question-list">${data.clarifying_questions.map(q => `<li>${esc(q)}</li>`).join("")}</ul>`
+        : esc(data.clarifying_questions || "—");
+
+      resultEl.innerHTML = `
+        <h2>Assessment Result</h2>
+
+        ${renderMetadata(data.video_metadata)}
+
+        <div class="field">
+          <div class="field-label">Problem Type</div>
+          <div class="field-value">${esc(data.problem_type || "—")}</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">Description</div>
+          <div class="field-value">${esc(data.description || "—")}</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">Location in Home</div>
+          <div class="field-value">${esc(data.location_in_home || "—")}</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">Urgency</div>
+          <div class="field-value">
+            <span class="tag ${urgencyClass}">${esc(data.urgency || "—")}</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">Materials / Components Visible</div>
+          <div class="field-value">${materials}</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">Clarifying Questions for the Tradesperson</div>
+          <div class="field-value">${questions}</div>
+        </div>
+      `;
+
+      resultEl.style.display = "block";
+    }
+
+    function renderError(msg) {
+      resultEl.innerHTML = `<div class="error-box"><strong>Error:</strong> ${esc(msg)}</div>`;
+      resultEl.style.display = "block";
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>
