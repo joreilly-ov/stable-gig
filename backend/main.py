@@ -4,7 +4,7 @@ import json
 import time
 import tempfile
 import google.generativeai as genai
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -114,7 +114,11 @@ Return only valid JSON, no markdown."""
 
 
 @app.post("/analyse")
-async def analyse_video(file: UploadFile = File(...)):
+async def analyse_video(
+    file: UploadFile = File(...),
+    browser_lat: float | None = Form(default=None),
+    browser_lon: float | None = Form(default=None),
+):
     if not file.content_type or not file.content_type.startswith("video/"):
         raise HTTPException(status_code=400, detail="Uploaded file must be a video")
 
@@ -126,6 +130,13 @@ async def analyse_video(file: UploadFile = File(...)):
 
     try:
         video_metadata = extract_video_metadata(tmp_path)
+
+        # Fall back to browser-supplied coords if the video has no embedded GPS
+        if browser_lat is not None and browser_lon is not None:
+            if "latitude" not in video_metadata:
+                video_metadata["latitude"] = browser_lat
+                video_metadata["longitude"] = browser_lon
+                video_metadata["location_source"] = "browser"
 
         uploaded = genai.upload_file(tmp_path, mime_type=file.content_type)
 
