@@ -1,11 +1,21 @@
-"""Auth routes — Magic Link (OTP) flow via Supabase Auth."""
+"""Auth routes — Magic Link (OTP) and Google OAuth via Supabase Auth."""
 
 from fastapi import APIRouter, HTTPException
 
+from app.config import settings
 from app.database import get_supabase
 from app.models.schemas import MagicLinkRequest, OTPVerifyRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/config")
+async def auth_config():
+    """Return public Supabase config needed for client-side OAuth (safe to expose)."""
+    return {
+        "supabase_url": settings.supabase_url,
+        "anon_key": settings.supabase_anon_key,
+    }
 
 
 @router.post("/magic-link", status_code=202)
