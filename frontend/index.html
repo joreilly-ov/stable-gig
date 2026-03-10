@@ -595,43 +595,69 @@
     let pendingEmail  = "";
 
     // ------------------------------------------------------------------ //
+    // ProtectedRoute
+    // ------------------------------------------------------------------ //
+    /**
+     * Returns a guarded route handler that requires authentication.
+     *
+     * requireSetup (default true): if the user hasn't completed onboarding
+     * they are redirected to /signup instead of the requested page.
+     */
+    function protectedRoute(renderFn, { requireSetup = true } = {}) {
+      return function () {
+        if (!session) { navigate("/login"); return; }
+        if (requireSetup && !setupComplete) { navigate("/signup"); return; }
+        renderFn();
+      };
+    }
+
+    // ------------------------------------------------------------------ //
+    // Page render functions
+    // ------------------------------------------------------------------ //
+    function showPage(name) {
+      document.getElementById("page-login").style.display     = name === "login"     ? "" : "none";
+      document.getElementById("page-signup").style.display    = name === "signup"    ? "" : "none";
+      document.getElementById("page-dashboard").style.display = name === "dashboard" ? "" : "none";
+    }
+
+    function renderLoginPage() {
+      // Already authenticated → skip the login page
+      if (session) { navigate(setupComplete ? "/dashboard" : "/signup"); return; }
+      showPage("login");
+      showLoginStep(1);
+    }
+
+    function renderSignupPage() {
+      // Setup already done → go straight to the app
+      if (setupComplete) { navigate("/dashboard"); return; }
+      showPage("signup");
+      showSignupStep(1);
+    }
+
+    function renderDashboardPage() {
+      showPage("dashboard");
+      renderAuthBar();
+    }
+
+    // ------------------------------------------------------------------ //
     // Router
     // ------------------------------------------------------------------ //
+    const ROUTES = {
+      "/":          renderLoginPage,
+      "/login":     renderLoginPage,
+      "/signup":    protectedRoute(renderSignupPage,    { requireSetup: false }),
+      "/dashboard": protectedRoute(renderDashboardPage, { requireSetup: true  }),
+    };
+
     function navigate(path) {
       window.history.pushState({}, "", path);
       route();
     }
 
     function route() {
-      const path      = window.location.pathname;
-      const loginPage = document.getElementById("page-login");
-      const signupPage = document.getElementById("page-signup");
-      const dashPage  = document.getElementById("page-dashboard");
-
-      // Helper: hide all, show one
-      function show(el) {
-        [loginPage, signupPage, dashPage].forEach(p => p.style.display = "none");
-        el.style.display = "";
-      }
-
-      if (path === "/dashboard") {
-        if (!session) { navigate("/"); return; }
-        show(dashPage);
-        renderAuthBar();
-      } else if (path === "/signup") {
-        if (!session) { navigate("/"); return; }
-        if (setupComplete) { navigate("/dashboard"); return; }
-        show(signupPage);
-        showSignupStep(1);
-      } else {
-        // "/" or anything else → login page
-        if (session) {
-          navigate(setupComplete ? "/dashboard" : "/signup");
-          return;
-        }
-        show(loginPage);
-        showLoginStep(1);
-      }
+      const handler = ROUTES[window.location.pathname];
+      if (handler) handler();
+      else navigate("/login"); // unknown path → login
     }
 
     window.addEventListener("popstate", route);
@@ -724,7 +750,7 @@
         `<button class="auth-btn secondary" id="logout-btn">Log out</button>`;
       document.getElementById("logout-btn").addEventListener("click", () => {
         clearSession();
-        navigate("/");
+        navigate("/login");
       });
     }
 
