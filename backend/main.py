@@ -30,5 +30,6 @@ _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
 @app.get("/", include_in_schema=False)
+@app.get("/dashboard", include_in_schema=False)
 def serve_frontend():
     return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
