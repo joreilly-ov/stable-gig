@@ -445,7 +445,7 @@
           <input type="email" id="auth-email" placeholder="you@example.com"
                  autocomplete="email" />
         </div>
-        <button class="btn-primary" id="send-code-btn">Send sign-in code</button>
+        <button class="btn-primary" id="send-code-btn">Email me a sign-in link</button>
         <div class="divider">or</div>
         <button class="btn-google" id="google-btn" disabled>
           <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -462,8 +462,8 @@
       <div id="login-step-2" style="display:none">
         <h2>Check your email</h2>
         <p class="form-info">
-          We sent a sign-in link to <strong id="otp-email-display"></strong>.<br>
-          Click the link in that email to continue.
+          We emailed a sign-in link to <strong id="otp-email-display"></strong>.<br>
+          Click the link in that email — no password or code needed.
         </p>
         <p class="otp-hint">Check your spam folder if it doesn't arrive within a minute.</p>
         <button class="back-link" id="back-btn">&#8592; Use a different email</button>
@@ -797,7 +797,7 @@
         showLoginError(1, err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = "Send sign-in code";
+        btn.textContent = "Email me a sign-in link";
       }
     });
 
