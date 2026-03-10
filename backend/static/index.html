@@ -699,13 +699,18 @@
         const r = await fetch("/me/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (r.ok) {
-          const email = knownEmail || parseJwtEmail(token);
-          session = { access_token: token, email };
-          sessionStorage.setItem("access_token", token);
-          sessionStorage.setItem("user_email", email);
+        // 401/403 = bad token → reject. 200 or 404 = valid token (404 = new user, no profile yet)
+        if (r.status === 401 || r.status === 403) {
+          clearSession();
+          return;
+        }
+        const email = knownEmail || parseJwtEmail(token);
+        session = { access_token: token, email };
+        sessionStorage.setItem("access_token", token);
+        sessionStorage.setItem("user_email", email);
 
-          // Check whether onboarding is complete
+        // Check whether onboarding is complete (only relevant if profile exists)
+        if (r.ok) {
           try {
             const mr = await fetch("/me/metadata", {
               headers: { Authorization: `Bearer ${token}` },
@@ -715,10 +720,10 @@
               setupComplete = meta.setup_complete === true;
             }
           } catch {}
-          return;
         }
-      } catch {}
-      clearSession();
+      } catch {
+        clearSession();
+      }
     }
 
     function parseJwtEmail(token) {
