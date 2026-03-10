@@ -758,14 +758,13 @@
     }
 
     function showLoginError(step, msg) {
-      const el = document.getElementById(step === 1 ? "login-error" : "login-error-2");
+      const el = document.getElementById("login-error");
       el.textContent = msg;
       el.style.display = "";
     }
 
     function clearLoginErrors() {
-      document.getElementById("login-error").style.display   = "none";
-      document.getElementById("login-error-2").style.display = "none";
+      document.getElementById("login-error").style.display = "none";
     }
 
     // ---- Send magic link (OTP) ----
@@ -789,7 +788,6 @@
         pendingEmail = email;
         document.getElementById("otp-email-display").textContent = email;
         showLoginStep(2);
-        setTimeout(() => document.getElementById("otp-input").focus(), 50);
       } catch (err) {
         showLoginError(1, err.message);
       } finally {
