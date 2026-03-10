@@ -127,6 +127,28 @@
     .btn-google:hover:not(:disabled) { background: #f8f8f8; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
     .btn-google:disabled { opacity: 0.5; cursor: not-allowed; }
     .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
+    .btn-secondary {
+      width: 100%;
+      padding: 0.75rem;
+      background: #fff;
+      color: #4a6cf7;
+      border: 1px solid #4a6cf7;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 0.75rem;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #f0f3ff; }
+    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-switch {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 1rem;
+    }
+    .auth-switch a { color: #4a6cf7; text-decoration: none; }
+    .auth-switch a:hover { text-decoration: underline; }
     .form-error {
       background: #fee2e2;
       color: #991b1b;
@@ -436,7 +458,7 @@
   <div id="page-login" class="centered-page" style="display:none">
     <div class="login-card">
 
-      <!-- Step 1: email + Google -->
+      <!-- Step 1: password sign-in + magic link + Google -->
       <div id="login-step-1">
         <h2>Sign in</h2>
         <div id="login-error" class="form-error" style="display:none"></div>
@@ -445,7 +467,14 @@
           <input type="email" id="auth-email" placeholder="you@example.com"
                  autocomplete="email" />
         </div>
-        <button class="btn-primary" id="send-code-btn">Email me a sign-in link</button>
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" placeholder="••••••••"
+                 autocomplete="current-password" />
+        </div>
+        <button class="btn-primary" id="pw-signin-btn">Sign in</button>
+        <div class="divider">or</div>
+        <button class="btn-secondary" id="send-code-btn">Email me a sign-in link</button>
         <div class="divider">or</div>
         <button class="btn-google" id="google-btn" disabled>
           <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -456,6 +485,7 @@
           </svg>
           Sign in with Google
         </button>
+        <p class="auth-switch">No account? <a href="#" id="go-register-btn">Create one</a></p>
       </div>
 
       <!-- Step 2: magic link sent -->
@@ -467,6 +497,29 @@
         </p>
         <p class="otp-hint">Check your spam folder if it doesn't arrive within a minute.</p>
         <button class="back-link" id="back-btn">&#8592; Use a different email</button>
+      </div>
+
+      <!-- Step 3: register with password -->
+      <div id="login-step-3" style="display:none">
+        <h2>Create account</h2>
+        <div id="register-error" class="form-error" style="display:none"></div>
+        <div class="form-group">
+          <label for="reg-email">Email address</label>
+          <input type="email" id="reg-email" placeholder="you@example.com"
+                 autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Password</label>
+          <input type="password" id="reg-password" placeholder="At least 8 characters"
+                 autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label for="reg-confirm">Confirm password</label>
+          <input type="password" id="reg-confirm" placeholder="Repeat password"
+                 autocomplete="new-password" />
+        </div>
+        <button class="btn-primary" id="register-btn">Create account</button>
+        <button class="back-link" id="back-to-login-btn">&#8592; Back to sign in</button>
       </div>
 
     </div>
@@ -759,23 +812,60 @@
     function showLoginStep(n) {
       document.getElementById("login-step-1").style.display = n === 1 ? "" : "none";
       document.getElementById("login-step-2").style.display = n === 2 ? "" : "none";
+      document.getElementById("login-step-3").style.display = n === 3 ? "" : "none";
       clearLoginErrors();
     }
 
-    function showLoginError(step, msg) {
+    function showLoginError(msg) {
       const el = document.getElementById("login-error");
+      el.textContent = msg;
+      el.style.display = "";
+    }
+
+    function showRegisterError(msg) {
+      const el = document.getElementById("register-error");
       el.textContent = msg;
       el.style.display = "";
     }
 
     function clearLoginErrors() {
       document.getElementById("login-error").style.display = "none";
+      document.getElementById("register-error").style.display = "none";
     }
+
+    // ---- Password sign-in ----
+    document.getElementById("pw-signin-btn").addEventListener("click", async () => {
+      const email = document.getElementById("auth-email").value.trim();
+      const password = document.getElementById("auth-password").value;
+      if (!email || !password) { showLoginError("Please enter your email and password."); return; }
+
+      const btn = document.getElementById("pw-signin-btn");
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+      clearLoginErrors();
+
+      try {
+        const r = await fetch("/auth/login/password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || "Sign-in failed.");
+        await establishSession(data.access_token, email);
+        route();
+      } catch (err) {
+        showLoginError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
+    });
 
     // ---- Send magic link (OTP) ----
     document.getElementById("send-code-btn").addEventListener("click", async () => {
       const email = document.getElementById("auth-email").value.trim();
-      if (!email) { showLoginError(1, "Please enter your email."); return; }
+      if (!email) { showLoginError("Please enter your email."); return; }
 
       const btn = document.getElementById("send-code-btn");
       btn.disabled = true;
@@ -789,12 +879,12 @@
           body: JSON.stringify({ email }),
         });
         const data = await r.json();
-        if (!r.ok) throw new Error(data.detail || "Failed to send code");
+        if (!r.ok) throw new Error(data.detail || "Failed to send link.");
         pendingEmail = email;
         document.getElementById("otp-email-display").textContent = email;
         showLoginStep(2);
       } catch (err) {
-        showLoginError(1, err.message);
+        showLoginError(err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = "Email me a sign-in link";
@@ -803,8 +893,73 @@
 
     document.getElementById("back-btn").addEventListener("click", () => showLoginStep(1));
 
+    // ---- Navigate to register ----
+    document.getElementById("go-register-btn").addEventListener("click", (e) => {
+      e.preventDefault();
+      // Pre-fill email if the user already typed one
+      const email = document.getElementById("auth-email").value.trim();
+      if (email) document.getElementById("reg-email").value = email;
+      showLoginStep(3);
+    });
+
+    document.getElementById("back-to-login-btn").addEventListener("click", () => showLoginStep(1));
+
+    // ---- Register with password ----
+    document.getElementById("register-btn").addEventListener("click", async () => {
+      const email    = document.getElementById("reg-email").value.trim();
+      const password = document.getElementById("reg-password").value;
+      const confirm  = document.getElementById("reg-confirm").value;
+
+      if (!email)    { showRegisterError("Please enter your email."); return; }
+      if (!password) { showRegisterError("Please choose a password."); return; }
+      if (password.length < 8) { showRegisterError("Password must be at least 8 characters."); return; }
+      if (password !== confirm) { showRegisterError("Passwords do not match."); return; }
+
+      const btn = document.getElementById("register-btn");
+      btn.disabled = true;
+      btn.textContent = "Creating account…";
+      clearLoginErrors();
+
+      try {
+        const r = await fetch("/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || "Registration failed.");
+
+        if (data.status === "confirmation_required") {
+          // Show a confirmation-pending message in place of the register form
+          document.getElementById("login-step-3").innerHTML =
+            `<h2>Check your email</h2>
+             <p class="form-info">We sent a confirmation link to <strong>${esc(email)}</strong>.<br>
+             Click it to activate your account, then sign in with your password.</p>
+             <button class="back-link" id="back-to-login-btn2">&#8592; Back to sign in</button>`;
+          document.getElementById("back-to-login-btn2")
+            .addEventListener("click", () => showLoginStep(1));
+        } else {
+          // Account active — log straight in
+          await establishSession(data.access_token, email);
+          route();
+        }
+      } catch (err) {
+        showRegisterError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Create account";
+      }
+    });
+
+    // Enter key helpers
+    document.getElementById("auth-password").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("pw-signin-btn").click();
+    });
     document.getElementById("auth-email").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.getElementById("send-code-btn").click();
+      if (e.key === "Enter") document.getElementById("pw-signin-btn").click();
+    });
+    document.getElementById("reg-confirm").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("register-btn").click();
     });
 
     // ---- Google OAuth (implicit flow — token returned in URL hash) ----

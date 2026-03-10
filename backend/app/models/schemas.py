@@ -29,6 +29,18 @@ class TokenResponse(BaseModel):
     user_id: str
 
 
+class PasswordAuthRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RegisterResponse(BaseModel):
+    status: str  # "active" | "confirmation_required"
+    access_token: str | None = None
+    token_type: str = "bearer"
+    user_id: str
+
+
 # --- Profiles ---
 
 class ProfileUpdate(BaseModel):
