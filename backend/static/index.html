@@ -21,7 +21,7 @@
     h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
     .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
 
-    /* --- Auth bar --- */
+    /* --- Auth bar (dashboard only) --- */
     .auth-bar {
       display: flex;
       align-items: center;
@@ -45,40 +45,24 @@
     .auth-btn.secondary { border-color: #ccc; color: #555; }
     .auth-btn.secondary:hover { background: #eee; color: #333; }
 
-    /* --- Modal --- */
-    .modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 100;
+    /* --- Login page --- */
+    .login-page {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      width: 100%;
     }
-    .modal-backdrop.open { display: flex; }
-    .modal {
+    .login-card {
       background: #fff;
       border-radius: 12px;
       padding: 2rem;
       width: 100%;
       max-width: 380px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-      position: relative;
     }
-    .modal h2 { font-size: 1.2rem; margin-bottom: 1.5rem; }
-    .modal-close {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: none;
-      border: none;
-      font-size: 1.4rem;
-      cursor: pointer;
-      color: #aaa;
-      line-height: 1;
-      padding: 0.1rem 0.3rem;
-    }
-    .modal-close:hover { color: #333; }
+    .login-card h2 { font-size: 1.2rem; margin-bottom: 1.5rem; }
+
+    /* --- Shared form styles --- */
     .form-group { margin-bottom: 1rem; }
     .form-group label {
       display: block;
@@ -146,19 +130,19 @@
     .btn-google:hover:not(:disabled) { background: #f8f8f8; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
     .btn-google:disabled { opacity: 0.5; cursor: not-allowed; }
     .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
-    .modal-info {
-      font-size: 0.875rem;
-      color: #555;
-      margin-bottom: 1rem;
-      line-height: 1.5;
-    }
-    .modal-error {
+    .form-error {
       background: #fee2e2;
       color: #991b1b;
       border-radius: 6px;
       padding: 0.65rem 0.85rem;
       font-size: 0.85rem;
       margin-bottom: 1rem;
+    }
+    .form-info {
+      font-size: 0.875rem;
+      color: #555;
+      margin-bottom: 1rem;
+      line-height: 1.5;
     }
     .otp-hint { font-size: 0.8rem; color: #888; margin-top: 0.35rem; }
     .back-link {
@@ -173,7 +157,7 @@
     }
     .back-link:hover { text-decoration: underline; }
 
-    /* --- Main card --- */
+    /* --- Main card (dashboard) --- */
     .card {
       background: #fff;
       border-radius: 12px;
@@ -311,18 +295,14 @@
   <h1>Home Repair Analyser</h1>
   <p class="subtitle">Upload a video of your repair issue for an instant AI assessment</p>
 
-  <!-- Auth bar -->
-  <div class="auth-bar" id="auth-bar"></div>
+  <!-- ===== LOGIN PAGE ===== -->
+  <div id="page-login" class="login-page" style="display:none">
+    <div class="login-card">
 
-  <!-- Login modal -->
-  <div class="modal-backdrop" id="modal-backdrop">
-    <div class="modal">
-      <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
-
-      <!-- Step 1: email + options -->
-      <div id="modal-step-1">
+      <!-- Step 1: email + Google -->
+      <div id="login-step-1">
         <h2>Sign in</h2>
-        <div id="modal-error" class="modal-error" style="display:none"></div>
+        <div id="login-error" class="form-error" style="display:none"></div>
         <div class="form-group">
           <label for="auth-email">Email address</label>
           <input type="email" id="auth-email" placeholder="you@example.com"
@@ -342,10 +322,10 @@
       </div>
 
       <!-- Step 2: OTP verify -->
-      <div id="modal-step-2" style="display:none">
+      <div id="login-step-2" style="display:none">
         <h2>Check your email</h2>
-        <div id="modal-error-2" class="modal-error" style="display:none"></div>
-        <p class="modal-info">
+        <div id="login-error-2" class="form-error" style="display:none"></div>
+        <p class="form-info">
           We sent a 6-digit code to <strong id="otp-email-display"></strong>. Enter it below.
         </p>
         <div class="form-group">
@@ -357,31 +337,72 @@
         <button class="btn-primary" id="verify-btn">Verify code</button>
         <button class="back-link" id="back-btn">&#8592; Use a different email</button>
       </div>
+
     </div>
   </div>
 
-  <!-- Main card -->
-  <div class="card">
-    <div class="upload-area" id="drop-zone">
-      <input type="file" id="video-input" accept="video/*" />
-      <div class="upload-icon">&#127916;</div>
-      <div class="upload-label">Click to choose a video, or drag &amp; drop here</div>
-      <div class="file-name" id="file-name"></div>
+  <!-- ===== DASHBOARD PAGE ===== -->
+  <div id="page-dashboard" style="display:none">
+
+    <!-- Auth bar -->
+    <div class="auth-bar" id="auth-bar"></div>
+
+    <!-- Main card -->
+    <div class="card">
+      <div class="upload-area" id="drop-zone">
+        <input type="file" id="video-input" accept="video/*" />
+        <div class="upload-icon">&#127916;</div>
+        <div class="upload-label">Click to choose a video, or drag &amp; drop here</div>
+        <div class="file-name" id="file-name"></div>
+      </div>
+
+      <button id="analyse-btn" disabled>Analyse Video</button>
+      <div id="status"></div>
+      <div id="result"></div>
     </div>
 
-    <button id="analyse-btn" disabled>Analyse Video</button>
-    <div id="status"></div>
-    <div id="result"></div>
   </div>
 
   <script>
     // ------------------------------------------------------------------ //
-    // Auth
+    // Auth state
     // ------------------------------------------------------------------ //
-    let authConfig = null; // { supabase_url, anon_key }
-    let session    = null; // { access_token, user_id, email }
+    let authConfig  = null; // { supabase_url, anon_key }
+    let session     = null; // { access_token, email }
     let pendingEmail = "";
 
+    // ------------------------------------------------------------------ //
+    // Router
+    // ------------------------------------------------------------------ //
+    function navigate(path) {
+      window.history.pushState({}, "", path);
+      route();
+    }
+
+    function route() {
+      const path        = window.location.pathname;
+      const loginPage   = document.getElementById("page-login");
+      const dashPage    = document.getElementById("page-dashboard");
+
+      if (path === "/dashboard") {
+        if (!session) { navigate("/"); return; }
+        loginPage.style.display = "none";
+        dashPage.style.display  = "";
+        renderAuthBar();
+      } else {
+        // "/" or anything else → login page
+        if (session) { navigate("/dashboard"); return; }
+        loginPage.style.display = "";
+        dashPage.style.display  = "none";
+        showLoginStep(1);
+      }
+    }
+
+    window.addEventListener("popstate", route);
+
+    // ------------------------------------------------------------------ //
+    // Auth boot
+    // ------------------------------------------------------------------ //
     async function bootAuth() {
       // 1. Load public Supabase config
       try {
@@ -400,24 +421,24 @@
         const params = new URLSearchParams(hash);
         const token  = params.get("access_token");
         if (token) {
-          // Clean the hash from the URL without triggering a reload
           window.history.replaceState(null, "", window.location.pathname);
           await establishSession(token, "");
-          updateAuthUI();
-          return;
         }
       }
 
-      // 3. Restore existing session from storage
-      const stored = sessionStorage.getItem("access_token");
-      if (stored) {
-        await establishSession(stored, sessionStorage.getItem("user_email") || "");
+      // 3. Restore existing session from sessionStorage
+      if (!session) {
+        const stored = sessionStorage.getItem("access_token");
+        if (stored) {
+          await establishSession(stored, sessionStorage.getItem("user_email") || "");
+        }
       }
-      updateAuthUI();
+
+      // 4. Route to the correct page
+      route();
     }
 
     async function establishSession(token, knownEmail) {
-      // Try to get profile (validates token and fetches email)
       try {
         const r = await fetch("/me/profile", {
           headers: { Authorization: `Bearer ${token}` },
@@ -430,7 +451,6 @@
           return;
         }
       } catch {}
-      // Token invalid or expired
       clearSession();
     }
 
@@ -449,62 +469,46 @@
       session = null;
     }
 
-    function updateAuthUI() {
+    function renderAuthBar() {
       const bar = document.getElementById("auth-bar");
-      if (session?.email) {
-        bar.innerHTML =
-          `<span class="auth-email">${esc(session.email)}</span>` +
-          `<button class="auth-btn secondary" id="logout-btn">Log out</button>`;
-        document.getElementById("logout-btn").addEventListener("click", () => {
-          clearSession();
-          updateAuthUI();
-        });
-      } else {
-        bar.innerHTML =
-          `<button class="auth-btn" id="login-btn">Log in / Sign up</button>`;
-        document.getElementById("login-btn").addEventListener("click", openModal);
-      }
+      bar.innerHTML =
+        `<span class="auth-email">${esc(session.email)}</span>` +
+        `<button class="auth-btn secondary" id="logout-btn">Log out</button>`;
+      document.getElementById("logout-btn").addEventListener("click", () => {
+        clearSession();
+        navigate("/");
+      });
     }
 
-    // ---- Modal helpers ----
-    function openModal() {
-      showStep(1);
-      document.getElementById("modal-backdrop").classList.add("open");
-      setTimeout(() => document.getElementById("auth-email").focus(), 50);
+    // ------------------------------------------------------------------ //
+    // Login page — form helpers
+    // ------------------------------------------------------------------ //
+    function showLoginStep(n) {
+      document.getElementById("login-step-1").style.display = n === 1 ? "" : "none";
+      document.getElementById("login-step-2").style.display = n === 2 ? "" : "none";
+      clearLoginErrors();
     }
-    function closeModal() {
-      document.getElementById("modal-backdrop").classList.remove("open");
-      clearModalErrors();
-    }
-    function showStep(n) {
-      document.getElementById("modal-step-1").style.display = n === 1 ? "" : "none";
-      document.getElementById("modal-step-2").style.display = n === 2 ? "" : "none";
-      clearModalErrors();
-    }
-    function showModalError(step, msg) {
-      const el = document.getElementById(step === 1 ? "modal-error" : "modal-error-2");
+
+    function showLoginError(step, msg) {
+      const el = document.getElementById(step === 1 ? "login-error" : "login-error-2");
       el.textContent = msg;
       el.style.display = "";
     }
-    function clearModalErrors() {
-      document.getElementById("modal-error").style.display   = "none";
-      document.getElementById("modal-error-2").style.display = "none";
-    }
 
-    document.getElementById("modal-close").addEventListener("click", closeModal);
-    document.getElementById("modal-backdrop").addEventListener("click", (e) => {
-      if (e.target === e.currentTarget) closeModal();
-    });
+    function clearLoginErrors() {
+      document.getElementById("login-error").style.display   = "none";
+      document.getElementById("login-error-2").style.display = "none";
+    }
 
     // ---- Send magic link (OTP) ----
     document.getElementById("send-code-btn").addEventListener("click", async () => {
       const email = document.getElementById("auth-email").value.trim();
-      if (!email) { showModalError(1, "Please enter your email."); return; }
+      if (!email) { showLoginError(1, "Please enter your email."); return; }
 
       const btn = document.getElementById("send-code-btn");
       btn.disabled = true;
       btn.textContent = "Sending…";
-      clearModalErrors();
+      clearLoginErrors();
 
       try {
         const r = await fetch("/auth/magic-link", {
@@ -516,10 +520,10 @@
         if (!r.ok) throw new Error(data.detail || "Failed to send code");
         pendingEmail = email;
         document.getElementById("otp-email-display").textContent = email;
-        showStep(2);
+        showLoginStep(2);
         setTimeout(() => document.getElementById("otp-input").focus(), 50);
       } catch (err) {
-        showModalError(1, err.message);
+        showLoginError(1, err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = "Send sign-in code";
@@ -529,12 +533,12 @@
     // ---- Verify OTP ----
     document.getElementById("verify-btn").addEventListener("click", async () => {
       const code = document.getElementById("otp-input").value.trim();
-      if (!code) { showModalError(2, "Please enter the code from your email."); return; }
+      if (!code) { showLoginError(2, "Please enter the code from your email."); return; }
 
       const btn = document.getElementById("verify-btn");
       btn.disabled = true;
       btn.textContent = "Verifying…";
-      clearModalErrors();
+      clearLoginErrors();
 
       try {
         const r = await fetch("/auth/verify", {
@@ -548,17 +552,17 @@
         session = { access_token: data.access_token, email: pendingEmail };
         sessionStorage.setItem("access_token", data.access_token);
         sessionStorage.setItem("user_email", pendingEmail);
-        closeModal();
-        updateAuthUI();
+        navigate("/dashboard");
       } catch (err) {
-        showModalError(2, err.message);
+        showLoginError(2, err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = "Verify code";
       }
     });
 
-    document.getElementById("back-btn").addEventListener("click", () => showStep(1));
+    document.getElementById("back-btn").addEventListener("click", () => showLoginStep(1));
+
     document.getElementById("otp-input").addEventListener("keydown", (e) => {
       if (e.key === "Enter") document.getElementById("verify-btn").click();
     });
@@ -569,7 +573,8 @@
     // ---- Google OAuth (implicit flow — token returned in URL hash) ----
     document.getElementById("google-btn").addEventListener("click", () => {
       if (!authConfig?.supabase_url) return;
-      const redirectTo = window.location.origin + window.location.pathname;
+      // Always redirect back to "/" so bootAuth can handle the hash and route to /dashboard
+      const redirectTo = window.location.origin + "/";
       const url =
         `${authConfig.supabase_url}/auth/v1/authorize` +
         `?provider=google` +
