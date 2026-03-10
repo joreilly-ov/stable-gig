@@ -4,6 +4,7 @@ Auth is optional: authenticated users get results persisted to the videos table.
 Unauthenticated requests work exactly as before and are not stored.
 """
 
+import logging
 import os
 import tempfile
 
@@ -13,6 +14,7 @@ from app.dependencies import get_optional_user
 from app.services import gemini, video_meta as vm
 
 router = APIRouter(tags=["analyse"])
+log = logging.getLogger(__name__)
 
 
 @router.post("/analyse")
@@ -31,6 +33,8 @@ async def analyse_video(
         tmp.write(await file.read())
         tmp_path = tmp.name
 
+    user_id = str(user.id) if user else None
+
     try:
         metadata = vm.extract_video_metadata(tmp_path)
 
@@ -44,6 +48,8 @@ async def analyse_video(
         result = gemini.analyse(tmp_path, file.content_type)
         result["video_metadata"] = metadata
 
+        log.info("analysis_complete", extra={"user_id": user_id, "filename": file.filename})
+
         # Persist when authenticated
         if user is not None:
             _store_result(user.id, file.filename or "upload", result)
@@ -51,14 +57,17 @@ async def analyse_video(
         return result
 
     except ValueError as exc:
+        log.warning("gemini_non_json", extra={"user_id": user_id, "error": str(exc)})
         raise HTTPException(status_code=422, detail=f"Gemini returned non-JSON: {exc}")
     except Exception as exc:
         msg = str(exc)
         if "429" in msg or "quota" in msg.lower() or "rate" in msg.lower():
+            log.error("gemini_quota_exceeded", extra={"user_id": user_id, "error": msg})
             raise HTTPException(
                 status_code=429,
                 detail="Gemini API quota exceeded. Check billing at https://aistudio.google.com/",
             )
+        log.error("analyse_failed", extra={"user_id": user_id, "filename": file.filename, "error": msg})
         raise HTTPException(status_code=500, detail=msg)
     finally:
         os.unlink(tmp_path)
@@ -72,5 +81,5 @@ def _store_result(user_id: str, filename: str, result: dict) -> None:
         get_supabase().table("videos").insert(
             {"user_id": user_id, "filename": filename, "analysis_result": result}
         ).execute()
-    except Exception:
-        pass  # DB is not yet configured in dev; do not break the response
+    except Exception as exc:
+        log.warning("store_result_failed", extra={"user_id": user_id, "error": str(exc)})

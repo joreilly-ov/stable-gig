@@ -1,5 +1,7 @@
 """Auth routes — Magic Link (OTP) and Google OAuth via Supabase Auth."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from app.config import settings
@@ -7,6 +9,7 @@ from app.database import get_supabase
 from app.models.schemas import MagicLinkRequest, OTPVerifyRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+log = logging.getLogger(__name__)
 
 
 @router.get("/config")
@@ -24,7 +27,9 @@ async def send_magic_link(body: MagicLinkRequest):
     try:
         get_supabase().auth.sign_in_with_otp({"email": body.email})
     except Exception as exc:
+        log.error("magic_link_failed", extra={"email": body.email, "error": str(exc)})
         raise HTTPException(status_code=400, detail=str(exc))
+    log.info("magic_link_sent", extra={"email": body.email})
     return {"message": f"Magic link sent to {body.email}"}
 
 

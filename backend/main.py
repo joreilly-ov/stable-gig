@@ -1,3 +1,5 @@
+import json
+import logging
 import os
 
 from fastapi import FastAPI
@@ -5,6 +7,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.routers import analyse, auth, profiles, address, user_metadata
+
+
+class _JsonFormatter(logging.Formatter):
+    """Single-line JSON logs — parsed automatically by Cloud Logging."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict = {
+            "severity": record.levelname,
+            "message": record.getMessage(),
+            "logger": record.name,
+        }
+        if record.exc_info:
+            entry["exception"] = self.formatException(record.exc_info)
+        # Forward any extra fields passed via logger.error("…", extra={…})
+        _SKIP = frozenset(logging.LogRecord("", 0, "", 0, "", (), None).__dict__)
+        for k, v in record.__dict__.items():
+            if k not in _SKIP and not k.startswith("_"):
+                entry[k] = v
+        return json.dumps(entry, default=str)
+
+
+def _configure_logging() -> None:
+    handler = logging.StreamHandler()
+    handler.setFormatter(_JsonFormatter())
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(logging.INFO)
+    # Quiet down noisy uvicorn access log (Cloud Run already logs each request)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
+
+_configure_logging()
 
 app = FastAPI(
     title="Home Repair Video Analyser",
