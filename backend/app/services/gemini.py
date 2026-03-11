@@ -21,24 +21,37 @@ Return only valid JSON, no markdown."""
 
 
 def analyse(file_path: str, mime_type: str) -> dict:
-    """Upload *file_path* to Gemini, wait for it to become ACTIVE, then return the parsed JSON result."""
+    """Upload *file_path* to Gemini, wait for it to become ACTIVE, then return the parsed JSON result.
+
+    Intended to be called via asyncio.to_thread — all Gemini SDK calls are synchronous,
+    so time.sleep here is safe (it runs on a worker thread, not the event loop).
+    """
     uploaded = genai.upload_file(file_path, mime_type=mime_type)
 
-    # Poll until file is ACTIVE
-    while uploaded.state.name == "PROCESSING":
-        time.sleep(2)
-        uploaded = genai.get_file(uploaded.name)
+    try:
+        # Poll until file is ACTIVE — time.sleep is fine here; see docstring.
+        while uploaded.state.name == "PROCESSING":
+            time.sleep(2)
+            uploaded = genai.get_file(uploaded.name)
 
-    if uploaded.state.name != "ACTIVE":
-        raise RuntimeError(f"Gemini file entered state {uploaded.state.name!r}")
+        if uploaded.state.name != "ACTIVE":
+            raise RuntimeError(f"Gemini file entered state {uploaded.state.name!r}")
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content([ANALYSIS_PROMPT, uploaded])
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content([ANALYSIS_PROMPT, uploaded])
 
-    raw_text = response.text.strip()
-    # Strip markdown code fences that Gemini occasionally wraps responses in
-    if raw_text.startswith("```"):
-        raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
-        raw_text = re.sub(r"\s*```$", "", raw_text).strip()
+        raw_text = response.text.strip()
+        # Strip markdown code fences that Gemini occasionally wraps responses in
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
+            raw_text = re.sub(r"\s*```$", "", raw_text).strip()
 
-    return json.loads(raw_text)
+        return json.loads(raw_text)
+
+    finally:
+        # [SECURITY: code-review] Always delete the remote Gemini file after analysis to
+        # prevent unbounded accumulation in the Gemini File API storage quota.
+        try:
+            genai.delete_file(uploaded.name)
+        except Exception:
+            pass  # best-effort; don't mask the original error

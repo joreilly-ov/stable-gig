@@ -6,6 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+# [SECURITY: code-review] slowapi provides per-IP rate limiting; the exception
+# handler converts RateLimitExceeded into a standard 429 response.
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
 from app.routers import analyse, auth, profiles, address, user_metadata
 
 
@@ -40,11 +46,18 @@ def _configure_logging() -> None:
 
 _configure_logging()
 
+# [SECURITY: code-review] Shared limiter instance; routers import this to apply
+# per-route limits.  key_func=get_remote_address buckets by client IP.
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Home Repair Video Analyser",
     description="Upload a home repair video; get a structured Gemini 2.5 Flash assessment.",
     version="0.2.0",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

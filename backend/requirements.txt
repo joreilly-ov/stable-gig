@@ -18,3 +18,7 @@ supabase==2.10.0
 
 # HTTP client (Smarty API, future integrations)
 httpx==0.27.2
+
+# [SECURITY: code-review] Rate limiting middleware to protect auth endpoints from
+# brute-force and email-bombing attacks.
+slowapi==0.1.9
