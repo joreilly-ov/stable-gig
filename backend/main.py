@@ -12,7 +12,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.routers import analyse, auth, profiles, address, user_metadata
+from app.routers import analyse, auth, profiles, address, user_metadata, photo_analysis
 
 
 class _JsonFormatter(logging.Formatter):
@@ -68,6 +68,7 @@ app.add_middleware(
 
 # --- Routers ---
 app.include_router(analyse.router)
+app.include_router(photo_analysis.router)   # TradePhotoAnalyzer — POST /analyse/photos
 app.include_router(auth.router)
 app.include_router(profiles.router)
 app.include_router(address.router)
