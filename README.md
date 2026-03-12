@@ -1,93 +1,109 @@
-# Home Repair Video Analyser
+# Home Repair Analyser
 
-A minimal proof-of-concept web app that lets you upload a short video of a home repair issue and receive an AI-generated structured assessment powered by **Google Gemini 2.0 Flash**.
+A single-service web app: **FastAPI** backend that serves both the API and the frontend HTML. Users authenticate via Supabase (email/password, magic-link, or Google SSO), then submit home repair **videos** or **photos** for a structured AI assessment powered by **Google Gemini**.
+
+**Live:** `https://stable-gig-374485351183.europe-west1.run.app`
+
+---
+
+## Features
+
+| Feature | Detail |
+|---------|--------|
+| **Video analysis** | Upload a video → Gemini 2.5 Flash returns problem type, urgency, materials, clarifying questions, and extracted video metadata (GPS, device, resolution) |
+| **Photo analysis** | Upload 1–5 photos → Gemini 1.5 Flash runs Multi-Perspective Triangulation and returns a diagnosis, urgency score (1–10), required tools, and estimated parts |
+| **Auth** | Email + password, magic-link OTP, and Google OAuth via Supabase |
+| **Rate limiting** | 5–10 req/min per IP on auth endpoints (slowapi) |
+| **Onboarding** | Two-step signup: profile (name, address) + trade interests |
+| **Dashboard tabs** | Video Analysis tab and Photo Analysis tab in a single SPA |
+
+---
 
 ## Project structure
 
 ```
-/backend
-  main.py           # FastAPI app — GET / and POST /analyse
-  requirements.txt
-  /static
-    index.html      # Frontend served by FastAPI at GET /
-/frontend
-  index.html        # Local dev copy (keep in sync with backend/static/)
-.env.example
-README.md
+backend/
+├── main.py                         # FastAPI app — mounts all routers, serves frontend
+├── requirements.txt                # Runtime dependencies
+├── requirements-test.txt           # Test-only dependencies
+├── Dockerfile                      # Cloud Run container image
+├── pytest.ini
+├── app/
+│   ├── config.py                   # Pydantic settings (reads env vars / .env)
+│   ├── database.py                 # Supabase client singletons
+│   ├── dependencies.py             # get_current_user / get_optional_user
+│   ├── models/schemas.py           # Shared Pydantic models
+│   ├── routers/
+│   │   ├── analyse.py              # POST /analyse          (video)
+│   │   ├── photo_analysis.py       # POST /analyse/photos   (photos)
+│   │   ├── auth.py                 # POST /auth/*           (login, register, magic-link)
+│   │   ├── profiles.py             # GET/PATCH /me/profile
+│   │   ├── user_metadata.py        # GET/PATCH /me/metadata
+│   │   └── address.py             # GET /address/zip, /address/autocomplete
+│   └── services/
+│       ├── gemini.py               # Video → Gemini 2.5 Flash
+│       ├── photo_analyzer.py       # Photos → Gemini 1.5 Flash (preprocessing + prompt)
+│       ├── video_meta.py           # hachoir + mutagen metadata extraction
+│       └── smarty.py              # Smarty address autocomplete / ZIP lookup
+├── static/
+│   └── index.html                  # Deployed frontend (SPA — login, signup, dashboard)
+└── tests/
+    ├── conftest.py
+    ├── test_photo_analyzer_service.py   # 32 unit tests
+    └── test_photo_analysis_router.py    # 30 integration tests
+
+frontend/
+└── index.html                      # Local dev copy — keep in sync with backend/static/
+
+scripts/
+└── create_asana_tickets.py         # One-shot: file TradePhotoAnalyzer Asana tickets
+
+.env.example                        # Template — copy to backend/.env for local dev
 ```
 
-> `backend/static/index.html` is the copy that gets deployed to Railway.
-> `frontend/index.html` is kept for local development convenience.
-> If you edit one, update the other.
+---
 
-## Prerequisites
+## Running locally
 
-- Python 3.11+
-- A [Google AI Studio](https://aistudio.google.com/) API key with Gemini access
+```bash
+cd backend
+cp ../.env.example .env
+# Edit .env — set GEMINI_API_KEY (and optionally SUPABASE_* keys)
 
-## Setup
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+# App at http://localhost:8000
+```
 
-1. **Clone and enter the repo**
+**Required env vars:**
 
-   ```bash
-   git clone <repo-url>
-   cd <repo>
-   ```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Google AI Studio API key |
+| `SUPABASE_URL` | For auth | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | For auth | Supabase anon (public) key |
+| `SUPABASE_SERVICE_KEY` | For admin ops | Supabase service-role key (bypasses RLS) |
+| `SMARTY_AUTH_ID` / `SMARTY_AUTH_TOKEN` | No | Address autocomplete (omit to disable) |
 
-2. **Create your `.env` file**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env and set your key:
-   # GEMINI_API_KEY=your_key_here
-   ```
-
-3. **Install backend dependencies**
-
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
-
-4. **Run the backend**
-
-   ```bash
-   uvicorn main:app --reload --port 8000
-   ```
-
-5. **Open the app**
-
-   Visit [http://localhost:8000](http://localhost:8000) — the backend serves the frontend directly.
+---
 
 ## API
 
-### `GET /`
+### `POST /analyse` — video
 
-Returns the frontend UI (`backend/static/index.html`).
-
-### `POST /analyse`
-
-Accepts a `multipart/form-data` upload with a single field named `file` containing a video.
-
-**Response** (JSON):
+`multipart/form-data` with a `file` (video) field. Optional `browser_lat` / `browser_lon` form fields supply GPS when the video has no embedded coordinates.
 
 ```json
 {
   "problem_type": "plumbing",
-  "description": "A dripping tap in the kitchen sink …",
+  "description": "A dripping tap in the kitchen sink…",
   "location_in_home": "kitchen",
   "urgency": "low",
   "materials_involved": ["copper pipe", "tap washer"],
-  "clarifying_questions": [
-    "How long has the tap been dripping?",
-    "Is the drip from the hot or cold side?",
-    "Have you noticed any water damage under the sink?"
-  ],
+  "clarifying_questions": ["How long has the tap been dripping?"],
   "video_metadata": {
     "duration_seconds": 12.4,
     "resolution": "1920x1080",
-    "frame_rate_fps": 30.0,
-    "recorded_at": "2024-11-01T10:23:00",
     "latitude": 51.5074,
     "longitude": -0.1278,
     "device_make": "Samsung",
@@ -96,62 +112,119 @@ Accepts a `multipart/form-data` upload with a single field named `file` containi
 }
 ```
 
-`video_metadata` is a best-effort extraction from the file's technical and embedded tags (via `hachoir` and `mutagen`). Fields are omitted if not present in the file.
+Max upload: **350 MB**. Validated via magic bytes (not just Content-Type).
 
-## Testing
+---
 
-The project has a unit + integration test suite covering the **TradePhotoAnalyzer** service
-(`POST /analyse/photos`).  No API keys or network access are needed — all external services
-(Gemini, Supabase) are mocked.
+### `POST /analyse/photos` — photos
 
-### Test structure
+JSON body:
 
-```
-backend/
-├── tests/
-│   ├── conftest.py                      # Shared fixtures + module stubs
-│   ├── test_photo_analyzer_service.py   # Unit tests: sharpness, image loading, preprocessing, analyse()
-│   └── test_photo_analysis_router.py    # Integration tests: validation, error handling, happy path
-├── pytest.ini                           # asyncio_mode = auto, testpaths = tests
-└── requirements-test.txt                # pytest + pytest-asyncio
+```json
+{
+  "images": ["data:image/jpeg;base64,…", "https://example.com/photo.jpg"],
+  "description": "Damp patch on ceiling below the bathroom (10–1000 chars)",
+  "trade_category": "damp"
+}
 ```
 
-### Running the tests
+`images`: 1–5 entries, each a base64 data URI or HTTPS URL. Supported formats: JPEG, PNG, WebP.
+`trade_category`: optional — one of `plumbing`, `electrical`, `structural`, `damp`, `roofing`, `general`.
+
+```json
+{
+  "likely_issue": "Rising damp caused by failed DPC at ground level",
+  "urgency_score": 7,
+  "required_tools": ["damp meter", "cold chisel", "hawk and trowel"],
+  "estimated_parts": ["DPC membrane", "sand/cement render"],
+  "image_feedback": [
+    { "index": 0, "role": "Wide Shot",  "quality": "ok",     "note": null },
+    { "index": 1, "role": "Close-up",   "quality": "blurry", "note": "Sharpness score 4.2 — retake if possible" }
+  ],
+  "token_usage_estimate": { "prompt_tokens": 1820, "completion_tokens": 312, "total_tokens": 2132 }
+}
+```
+
+Images are preprocessed before Gemini: resized to ≤1200 px, re-encoded as JPEG, and sharpness-checked. Each image is assigned a positional role (Wide Shot → Close-up → Scale/Context → Supplemental A/B).
+
+---
+
+### Auth endpoints (`/auth/*`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/auth/config` | Returns public Supabase URL + anon key for client-side OAuth |
+| `POST` | `/auth/magic-link` | Send a sign-in link to an email address (5/min) |
+| `POST` | `/auth/verify` | Exchange an OTP token for a session (10/min) |
+| `POST` | `/auth/register` | Register with email + password (5/min) |
+| `POST` | `/auth/login/password` | Sign in with email + password (10/min) |
+
+### Profile / metadata (`/me/*`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/me/profile` | Fetch name, address fields |
+| `PATCH`| `/me/profile` | Update profile |
+| `GET`  | `/me/metadata` | Fetch username, bio, trade interests, setup status |
+| `PATCH`| `/me/metadata` | Update metadata |
+
+---
+
+## Tests
+
+62 tests, ~1 s, no API keys or network access needed (Gemini and Supabase are mocked).
 
 ```bash
 cd backend
 pip install -r requirements.txt -r requirements-test.txt
-pytest
+pytest          # all 62 tests
+pytest -v       # verbose
 ```
 
-To see verbose output:
-
-```bash
-pytest -v
-```
-
-### What is tested
-
-| File | Tests | What they cover |
-|------|-------|-----------------|
-| `test_photo_analyzer_service.py` | 32 | `_sharpness_score` — blurry vs sharp images<br>`_fetch_image_bytes` — base64 data URIs, bad schemes<br>`_load_and_preprocess` — size guard, resize, blur flag, role assignment, corrupt files<br>`analyse()` — all-bad images, urgency clamping, token usage, feedback shape |
-| `test_photo_analysis_router.py` | 30 | Request validation — empty list, >5 images, short/long description, invalid category<br>Error mapping — ValueError→422, quota→429, generic→500, no info leakage in 500s<br>Happy path — correct response shape, urgency clamping, arg passthrough |
-
-### Notes
-
-- Gemini is never called: `_call_gemini` is patched in service tests; `photo_analyzer.analyse`
-  is patched in router tests.
-- `google.generativeai` and `supabase` are stubbed in `conftest.py` because the
-  cryptography C extension panics in the sandbox environment.  In a real environment
-  (Cloud Run, your local machine) the real packages work fine and the stubs are not used.
+| File | Tests | Covers |
+|------|-------|--------|
+| `test_photo_analyzer_service.py` | 32 | Sharpness detection · image loading · preprocessing (size guard, resize, blur flag, role assignment) · `analyse()` orchestrator |
+| `test_photo_analysis_router.py`  | 30 | Request validation · error→HTTP status mapping · happy-path response shape |
 
 ---
 
-## Deploying to Railway
+## Deploying to Cloud Run
 
-1. Push this repo to GitHub.
-2. Create a new Railway project → **Deploy from GitHub repo**.
-3. Set **Root Directory** to `backend`.
-4. Set the start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add the `GEMINI_API_KEY` environment variable in Railway's settings.
-6. The app serves the UI at `/` — no separate static hosting needed.
+**Project:** `gen-lang-client-0428658103` · **Region:** `europe-west1` · **Service:** `stable-gig`
+
+Secrets (`GEMINI_API_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`) are stored in GCP Secret Manager and mounted at runtime.
+
+### Build + deploy
+
+```bash
+gcloud builds submit backend/ \
+  --tag gcr.io/gen-lang-client-0428658103/stable-gig \
+  --project=gen-lang-client-0428658103 && \
+gcloud run deploy stable-gig \
+  --image gcr.io/gen-lang-client-0428658103/stable-gig \
+  --platform managed \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --set-env-vars SUPABASE_URL=https://szpgcvfemllcsajryyuv.supabase.co \
+  --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest \
+  --project=gen-lang-client-0428658103
+```
+
+### First-time secrets setup
+
+```bash
+echo -n "YOUR_KEY" | gcloud secrets create GEMINI_API_KEY --data-file=- --project=gen-lang-client-0428658103
+echo -n "YOUR_KEY" | gcloud secrets create SUPABASE_ANON_KEY --data-file=- --project=gen-lang-client-0428658103
+echo -n "YOUR_KEY" | gcloud secrets create SUPABASE_SERVICE_KEY --data-file=- --project=gen-lang-client-0428658103
+```
+
+To rotate a secret: `echo -n "NEW_KEY" | gcloud secrets versions add SECRET_NAME --data-file=- --project=gen-lang-client-0428658103`, then redeploy.
+
+---
+
+## Frontend notes
+
+- `backend/static/index.html` and `frontend/index.html` are identical. Edit one, copy to the other.
+- The SPA handles `/`, `/login`, `/signup`, and `/dashboard` — all served by FastAPI.
+- Auth tokens are stored in `sessionStorage` (cleared on tab close).
+- The dashboard has two tabs: **Video Analysis** and **Photo Analysis**. Tab state is client-side only (no URL change).
