@@ -462,6 +462,92 @@
       margin-right: 0.4rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Dashboard tabs --- */
+    .tab-nav {
+      display: flex;
+      width: 100%;
+      max-width: 600px;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 1rem;
+    }
+    .tab-btn {
+      padding: 0.6rem 1.25rem;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: #4a6cf7; }
+    .tab-btn.active { color: #4a6cf7; border-bottom-color: #4a6cf7; }
+
+    /* --- Photo upload --- */
+    .photo-dropzone {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      margin-bottom: 1rem;
+    }
+    .photo-dropzone:hover, .photo-dropzone.drag-over { border-color: #4a6cf7; }
+    .photo-dropzone input { display: none; }
+    .thumb-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .thumb-wrap { position: relative; width: 80px; height: 80px; }
+    .thumb-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+    .thumb-remove {
+      position: absolute; top: -6px; right: -6px;
+      width: 20px; height: 20px;
+      background: #ef4444; color: #fff;
+      border: none; border-radius: 50%;
+      font-size: 0.8rem; line-height: 20px; text-align: center;
+      cursor: pointer; padding: 0;
+    }
+    button#photo-analyse-btn {
+      width: 100%; padding: 0.85rem;
+      background: #4a6cf7; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 1rem; cursor: pointer;
+      transition: background 0.2s;
+    }
+    button#photo-analyse-btn:hover:not(:disabled) { background: #3a5ce5; }
+    button#photo-analyse-btn:disabled { background: #a0aec0; cursor: not-allowed; }
+    #photo-status {
+      margin-top: 1rem; text-align: center;
+      font-size: 0.9rem; color: #555; min-height: 1.2em;
+    }
+    #photo-result { margin-top: 1.5rem; display: none; }
+    #photo-result h2 {
+      font-size: 1.1rem; margin-bottom: 1rem;
+      padding-bottom: 0.5rem; border-bottom: 1px solid #eee;
+    }
+    /* Urgency score bar */
+    .score-bar-wrap { display: flex; align-items: center; gap: 0.75rem; }
+    .score-track { flex: 1; height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+    .score-fill  { height: 100%; border-radius: 999px; }
+    .score-num   { font-weight: 700; font-size: 0.95rem; min-width: 2.5rem; text-align: right; }
+    /* Image quality badges */
+    .quality-badge {
+      display: inline-block; padding: 0.15rem 0.5rem;
+      border-radius: 999px; font-size: 0.75rem;
+      font-weight: 600; white-space: nowrap;
+    }
+    .q-ok             { background: #d1fae5; color: #065f46; }
+    .q-blurry         { background: #fef9c3; color: #713f12; }
+    .q-unidentifiable { background: #fee2e2; color: #991b1b; }
+    .q-unsupported    { background: #f3f4f6; color: #374151; }
+    .feedback-row     { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 0.4rem; }
   </style>
 </head>
 <body>
@@ -632,18 +718,59 @@
     <!-- Auth bar -->
     <div class="auth-bar" id="auth-bar"></div>
 
-    <!-- Main card -->
-    <div class="card">
+    <!-- Tab nav -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="video">&#127916; Video Analysis</button>
+      <button class="tab-btn"        data-tab="photos">&#128247; Photo Analysis</button>
+    </nav>
+
+    <!-- Video panel -->
+    <div class="card" id="panel-video">
       <div class="upload-area" id="drop-zone">
         <input type="file" id="video-input" accept="video/*" />
         <div class="upload-icon">&#127916;</div>
         <div class="upload-label">Click to choose a video, or drag &amp; drop here</div>
         <div class="file-name" id="file-name"></div>
       </div>
-
       <button id="analyse-btn" disabled>Analyse Video</button>
       <div id="status"></div>
       <div id="result"></div>
+    </div>
+
+    <!-- Photo panel -->
+    <div class="card" id="panel-photos" style="display:none">
+      <div class="photo-dropzone" id="photo-dropzone">
+        <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" multiple />
+        <div class="upload-icon">&#128247;</div>
+        <div class="upload-label" id="photo-drop-label">Click to add up to 5 photos, or drag &amp; drop</div>
+        <div style="font-size:0.8rem;color:#999;margin-top:0.25rem">JPEG &middot; PNG &middot; WebP</div>
+      </div>
+      <div class="thumb-grid" id="thumb-grid"></div>
+
+      <div class="form-group">
+        <label for="photo-desc">Describe the problem <span style="color:#dc2626">*</span></label>
+        <textarea id="photo-desc" placeholder="e.g. Damp patch on the ceiling below the bathroom — appeared 3 weeks ago and is slowly growing…" maxlength="1000"></textarea>
+        <div style="font-size:0.75rem;color:#9ca3af;text-align:right;margin-top:0.25rem">
+          <span id="photo-char-count">0</span>/1000
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="photo-category">Trade category <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
+        <select id="photo-category" style="width:100%;padding:0.65rem 0.75rem;border:1px solid #ddd;border-radius:6px;font-size:0.95rem;font-family:inherit;background:#fff;outline:none;cursor:pointer">
+          <option value="">— Select if known —</option>
+          <option value="plumbing">Plumbing</option>
+          <option value="electrical">Electrical</option>
+          <option value="structural">Structural</option>
+          <option value="damp">Damp</option>
+          <option value="roofing">Roofing</option>
+          <option value="general">General</option>
+        </select>
+      </div>
+
+      <button id="photo-analyse-btn" disabled>Analyse Photos</button>
+      <div id="photo-status"></div>
+      <div id="photo-result"></div>
     </div>
 
   </div>
@@ -1451,6 +1578,192 @@
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+    }
+
+    // ------------------------------------------------------------------ //
+    // Dashboard tab switching
+    // ------------------------------------------------------------------ //
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        document.getElementById("panel-video").style.display  = tab === "video"  ? "" : "none";
+        document.getElementById("panel-photos").style.display = tab === "photos" ? "" : "none";
+      });
+    });
+
+    // ------------------------------------------------------------------ //
+    // Photo analysis
+    // ------------------------------------------------------------------ //
+    const MAX_PHOTOS      = 5;
+    let   photoFiles      = [];
+
+    const photoDropzone   = document.getElementById("photo-dropzone");
+    const photoInput      = document.getElementById("photo-input");
+    const thumbGrid       = document.getElementById("thumb-grid");
+    const photoDropLabel  = document.getElementById("photo-drop-label");
+    const photoAnalyseBtn = document.getElementById("photo-analyse-btn");
+    const photoStatusEl   = document.getElementById("photo-status");
+    const photoResultEl   = document.getElementById("photo-result");
+    const photoDesc       = document.getElementById("photo-desc");
+    const photoCharCount  = document.getElementById("photo-char-count");
+
+    photoDropzone.addEventListener("click", () => photoInput.click());
+    photoInput.addEventListener("change", () => {
+      addPhotoFiles([...photoInput.files]);
+      photoInput.value = "";
+    });
+    photoDropzone.addEventListener("dragover",  e => { e.preventDefault(); photoDropzone.classList.add("drag-over"); });
+    photoDropzone.addEventListener("dragleave", ()  => photoDropzone.classList.remove("drag-over"));
+    photoDropzone.addEventListener("drop", e => {
+      e.preventDefault();
+      photoDropzone.classList.remove("drag-over");
+      addPhotoFiles([...e.dataTransfer.files].filter(f => f.type.startsWith("image/")));
+    });
+
+    photoDesc.addEventListener("input", () => {
+      photoCharCount.textContent = photoDesc.value.length;
+      updatePhotoBtn();
+    });
+
+    function addPhotoFiles(files) {
+      for (const f of files) {
+        if (photoFiles.length >= MAX_PHOTOS) break;
+        if (!f.type.startsWith("image/")) continue;
+        photoFiles.push(f);
+      }
+      renderThumbs();
+      updatePhotoBtn();
+    }
+
+    function renderThumbs() {
+      thumbGrid.innerHTML = "";
+      photoFiles.forEach((f, i) => {
+        const url  = URL.createObjectURL(f);
+        const wrap = document.createElement("div");
+        wrap.className = "thumb-wrap";
+        wrap.innerHTML = `<img src="${url}" alt="Photo ${i + 1}" /><button class="thumb-remove" title="Remove">&times;</button>`;
+        wrap.querySelector(".thumb-remove").addEventListener("click", () => {
+          URL.revokeObjectURL(url);
+          photoFiles.splice(i, 1);
+          renderThumbs();
+          updatePhotoBtn();
+        });
+        thumbGrid.appendChild(wrap);
+      });
+      if (photoFiles.length >= MAX_PHOTOS) {
+        photoDropLabel.textContent = "5 photos selected (maximum reached)";
+      } else if (photoFiles.length > 0) {
+        photoDropLabel.textContent = `${photoFiles.length} photo${photoFiles.length > 1 ? "s" : ""} selected — add more (up to ${MAX_PHOTOS})`;
+      } else {
+        photoDropLabel.textContent = "Click to add up to 5 photos, or drag & drop";
+      }
+    }
+
+    function updatePhotoBtn() {
+      photoAnalyseBtn.disabled = !(photoFiles.length > 0 && photoDesc.value.trim().length >= 10);
+    }
+
+    function fileToDataURI(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setPhotoStatus(msg, spinner = false) {
+      if (!msg) { photoStatusEl.textContent = ""; return; }
+      photoStatusEl.innerHTML = spinner ? `<span class="spinner"></span>${msg}` : msg;
+    }
+
+    document.getElementById("photo-analyse-btn").addEventListener("click", async () => {
+      if (!photoFiles.length || photoDesc.value.trim().length < 10) return;
+
+      photoAnalyseBtn.disabled = true;
+      photoResultEl.style.display = "none";
+      setPhotoStatus("Converting images…", true);
+
+      try {
+        const images   = await Promise.all(photoFiles.map(fileToDataURI));
+        const category = document.getElementById("photo-category").value || null;
+        const body     = { images, description: photoDesc.value.trim() };
+        if (category) body.trade_category = category;
+
+        setPhotoStatus("Analysing with Gemini — this may take a moment…", true);
+
+        const headers = { "Content-Type": "application/json" };
+        const token = sessionStorage.getItem("access_token");
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const resp = await fetch("/analyse/photos", { method: "POST", headers, body: JSON.stringify(body) });
+
+        let data;
+        try { data = await resp.json(); }
+        catch { throw new Error(`Server returned an unreadable response (HTTP ${resp.status}).`); }
+
+        if (!resp.ok) throw new Error(data.detail || `Server error ${resp.status}`);
+
+        setPhotoStatus("");
+        renderPhotoResult(data);
+      } catch (err) {
+        setPhotoStatus("");
+        photoResultEl.innerHTML = `<div class="error-box"><strong>Error:</strong> ${esc(err.message)}</div>`;
+        photoResultEl.style.display = "block";
+      } finally {
+        photoAnalyseBtn.disabled = false;
+      }
+    });
+
+    function urgencyColor(score) {
+      if (score <= 3) return "#10b981";
+      if (score <= 6) return "#f59e0b";
+      if (score <= 8) return "#ef4444";
+      return "#7f1d1d";
+    }
+
+    function renderPhotoResult(data) {
+      const score   = Math.max(1, Math.min(10, data.urgency_score || 1));
+      const color   = urgencyColor(score);
+      const fillPct = (score / 10) * 100;
+
+      const tools = (data.required_tools  || []).map(t => `<span class="pill">${esc(t)}</span>`).join("") || "—";
+      const parts = (data.estimated_parts || []).map(p => `<span class="pill">${esc(p)}</span>`).join("") || "—";
+
+      const feedbackHtml = (data.image_feedback || []).map(fb => {
+        const note = fb.note ? ` — ${esc(fb.note)}` : "";
+        return `<div class="feedback-row">
+          <span class="quality-badge q-${fb.quality}">${esc(fb.quality)}</span>
+          <span><strong>Image ${fb.index + 1}</strong> · ${esc(fb.role)}${note}</span>
+        </div>`;
+      }).join("");
+
+      photoResultEl.innerHTML = `
+        <h2>Photo Assessment</h2>
+        <div class="field">
+          <div class="field-label">Likely Issue</div>
+          <div class="field-value">${esc(data.likely_issue || "—")}</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Urgency Score</div>
+          <div class="score-bar-wrap">
+            <div class="score-track"><div class="score-fill" style="width:${fillPct}%;background:${color}"></div></div>
+            <span class="score-num" style="color:${color}">${score}/10</span>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Required Tools</div>
+          <div class="field-value">${tools}</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Estimated Parts</div>
+          <div class="field-value">${parts}</div>
+        </div>
+        ${feedbackHtml ? `<div class="field"><div class="field-label">Image Feedback</div><div class="field-value">${feedbackHtml}</div></div>` : ""}
+      `;
+      photoResultEl.style.display = "block";
     }
 
     // Boot auth on page load
