@@ -18,12 +18,39 @@ uvicorn main:app --reload --port 8000
 
 | File | Purpose |
 |------|---------|
-| `backend/main.py` | FastAPI app — `GET /` (UI) and `POST /analyse` |
+| `backend/main.py` | FastAPI app — `GET /` (UI), `POST /analyse`, `POST /analyse/photos` |
 | `backend/requirements.txt` | Python dependencies |
+| `backend/requirements-test.txt` | Test-only dependencies (pytest, pytest-asyncio) |
 | `backend/Dockerfile` | Container image for Cloud Run |
 | `backend/static/index.html` | **Deployed** frontend, served by FastAPI |
 | `frontend/index.html` | Local dev copy — keep in sync with `backend/static/index.html` |
 | `.env.example` | Template for `GEMINI_API_KEY` |
+| `backend/app/routers/photo_analysis.py` | TradePhotoAnalyzer endpoint — `POST /analyse/photos` |
+| `backend/app/services/photo_analyzer.py` | Image load, preprocess, sharpness check, Gemini 1.5 Flash call |
+| `backend/tests/conftest.py` | Shared test fixtures + module stubs |
+| `backend/tests/test_photo_analyzer_service.py` | Unit tests for the photo analyzer service |
+| `backend/tests/test_photo_analysis_router.py` | Integration tests for the photo analysis endpoint |
+| `scripts/create_asana_tickets.py` | One-shot script to file TradePhotoAnalyzer Asana tickets |
+
+## Running the tests
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-test.txt
+pytest            # 62 tests, ~1 s, no API keys needed
+pytest -v         # verbose output
+```
+
+**Test layout:**
+
+| File | Count | Covers |
+|------|-------|--------|
+| `tests/test_photo_analyzer_service.py` | 32 | Sharpness detection · image loading · preprocessing pipeline (size guard, resize, blur flag, role assignment) · `analyse()` orchestrator |
+| `tests/test_photo_analysis_router.py` | 30 | Request validation · error→HTTP status mapping · happy-path response shape |
+
+Gemini and Supabase are never called — all external dependencies are mocked.
+See `tests/conftest.py` for the stubbing strategy and the reason for the
+`sys.modules` pre-population.
 
 ## Architecture notes
 

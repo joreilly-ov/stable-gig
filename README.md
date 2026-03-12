@@ -98,6 +98,55 @@ Accepts a `multipart/form-data` upload with a single field named `file` containi
 
 `video_metadata` is a best-effort extraction from the file's technical and embedded tags (via `hachoir` and `mutagen`). Fields are omitted if not present in the file.
 
+## Testing
+
+The project has a unit + integration test suite covering the **TradePhotoAnalyzer** service
+(`POST /analyse/photos`).  No API keys or network access are needed — all external services
+(Gemini, Supabase) are mocked.
+
+### Test structure
+
+```
+backend/
+├── tests/
+│   ├── conftest.py                      # Shared fixtures + module stubs
+│   ├── test_photo_analyzer_service.py   # Unit tests: sharpness, image loading, preprocessing, analyse()
+│   └── test_photo_analysis_router.py    # Integration tests: validation, error handling, happy path
+├── pytest.ini                           # asyncio_mode = auto, testpaths = tests
+└── requirements-test.txt                # pytest + pytest-asyncio
+```
+
+### Running the tests
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-test.txt
+pytest
+```
+
+To see verbose output:
+
+```bash
+pytest -v
+```
+
+### What is tested
+
+| File | Tests | What they cover |
+|------|-------|-----------------|
+| `test_photo_analyzer_service.py` | 32 | `_sharpness_score` — blurry vs sharp images<br>`_fetch_image_bytes` — base64 data URIs, bad schemes<br>`_load_and_preprocess` — size guard, resize, blur flag, role assignment, corrupt files<br>`analyse()` — all-bad images, urgency clamping, token usage, feedback shape |
+| `test_photo_analysis_router.py` | 30 | Request validation — empty list, >5 images, short/long description, invalid category<br>Error mapping — ValueError→422, quota→429, generic→500, no info leakage in 500s<br>Happy path — correct response shape, urgency clamping, arg passthrough |
+
+### Notes
+
+- Gemini is never called: `_call_gemini` is patched in service tests; `photo_analyzer.analyse`
+  is patched in router tests.
+- `google.generativeai` and `supabase` are stubbed in `conftest.py` because the
+  cryptography C extension panics in the sandbox environment.  In a real environment
+  (Cloud Run, your local machine) the real packages work fine and the stubs are not used.
+
+---
+
 ## Deploying to Railway
 
 1. Push this repo to GitHub.
