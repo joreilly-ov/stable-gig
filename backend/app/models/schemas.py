@@ -104,6 +104,12 @@ class UserMetadataResponse(BaseModel):
     setup_complete: bool
     updated_at: str
 
+    @field_validator("trade_interests", mode="before")
+    @classmethod
+    def _null_to_empty(cls, v: object) -> object:
+        # Supabase returns null when no interests have been saved yet
+        return v if v is not None else []
+
 
 # --- Address ---
 
