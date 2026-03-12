@@ -12,6 +12,10 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+# Must be defined before routers are imported: auth.py does `from main import limiter`
+# at module level, which would fail with ImportError if limiter isn't yet assigned.
+limiter = Limiter(key_func=get_remote_address)
+
 from app.routers import analyse, auth, profiles, address, user_metadata, photo_analysis
 
 
@@ -45,10 +49,6 @@ def _configure_logging() -> None:
 
 
 _configure_logging()
-
-# [SECURITY: code-review] Shared limiter instance; routers import this to apply
-# per-route limits.  key_func=get_remote_address buckets by client IP.
-limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="Home Repair Video Analyser",
