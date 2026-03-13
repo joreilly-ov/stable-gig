@@ -161,6 +161,17 @@ async def analyse_photos(
             detail="Photo analysis failed. Please try again or contact support.",
         )
 
+    token_usage = result.get("token_usage_estimate", {})
+    from app.services.usage_logger import log_usage
+    log_usage(
+        analysis_type="photo",
+        model="gemini-2.5-flash",
+        user_id=user_id,
+        prompt_tokens=token_usage.get("prompt_tokens", 0),
+        completion_tokens=token_usage.get("completion_tokens", 0),
+        total_tokens=token_usage.get("total_tokens", 0),
+    )
+
     # Validate urgency_score is within bounds (Gemini occasionally goes off-range)
     result["urgency_score"] = max(1, min(10, int(result.get("urgency_score", 1))))
 

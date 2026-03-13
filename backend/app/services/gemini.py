@@ -46,7 +46,16 @@ def analyse(file_path: str, mime_type: str) -> dict:
             raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
             raw_text = re.sub(r"\s*```$", "", raw_text).strip()
 
-        return json.loads(raw_text)
+        parsed = json.loads(raw_text)
+
+        usage = getattr(response, "usage_metadata", None)
+        parsed["_token_usage"] = {
+            "prompt_tokens":     getattr(usage, "prompt_token_count",     0),
+            "completion_tokens": getattr(usage, "candidates_token_count", 0),
+            "total_tokens":      getattr(usage, "total_token_count",      0),
+        }
+
+        return parsed
 
     finally:
         # [SECURITY: code-review] Always delete the remote Gemini file after analysis to
