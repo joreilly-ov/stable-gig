@@ -115,7 +115,7 @@ class PhotoAnalysisResponse(BaseModel):
     description=(
         "Submit 1–5 photographs of a home repair problem. The service assigns each image "
         "a triangulation role (Wide Shot, Close-up, Scale/Context …), preprocesses them "
-        "for token efficiency, and returns a structured Gemini 1.5 Flash diagnosis."
+        "for token efficiency, and returns a structured Gemini 2.0 Flash diagnosis."
     ),
 )
 async def analyse_photos(
@@ -148,7 +148,7 @@ async def analyse_photos(
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
         msg = str(exc)
-        if "429" in msg or "quota" in msg.lower() or "rate" in msg.lower():
+        if "429" in msg or "quota" in msg.lower() or "rate limit" in msg.lower() or "ratelimit" in msg.lower():
             log.error("photo_gemini_quota", extra={"user_id": user_id, "error": msg})
             raise HTTPException(
                 status_code=429,

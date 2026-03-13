@@ -9,7 +9,7 @@ Flow:
   3. Run a per-image sharpness check and flag blurry / unusable images.
   4. Build a Multi-Perspective Triangulation prompt that assigns each image a
      positional role (Wide Shot → Close-up → Scale/Context → Supplemental).
-  5. Call Gemini 1.5 Flash via asyncio.to_thread (SDK is synchronous).
+  5. Call Gemini 2.0 Flash via asyncio.to_thread (SDK is synchronous).
   6. Parse and return the structured result.
 """
 
@@ -354,7 +354,7 @@ def _call_gemini(
 
     content.append(_JSON_INSTRUCTION)
 
-    model    = genai.GenerativeModel("gemini-1.5-flash")
+    model    = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(content)
 
     raw = response.text.strip()
