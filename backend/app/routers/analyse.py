@@ -111,7 +111,19 @@ async def analyse_video(
         result = await asyncio.to_thread(gemini.analyse, tmp_path, file.content_type)
         result["video_metadata"] = metadata
 
+        token_usage = result.pop("_token_usage", {})
+
         log.info("analysis_complete", extra={"user_id": user_id, "filename": file.filename})
+
+        from app.services.usage_logger import log_usage
+        log_usage(
+            analysis_type="video",
+            model="gemini-2.5-flash",
+            user_id=user_id,
+            prompt_tokens=token_usage.get("prompt_tokens", 0),
+            completion_tokens=token_usage.get("completion_tokens", 0),
+            total_tokens=token_usage.get("total_tokens", 0),
+        )
 
         # Persist when authenticated
         if user is not None:
@@ -126,7 +138,7 @@ async def analyse_video(
         raise  # re-raise 413 / 400 from size / magic checks above
     except Exception as exc:
         msg = str(exc)
-        if "429" in msg or "quota" in msg.lower() or "rate" in msg.lower():
+        if "429" in msg or "quota" in msg.lower() or "rate limit" in msg.lower() or "ratelimit" in msg.lower():
             log.error("gemini_quota_exceeded", extra={"user_id": user_id, "error": msg})
             raise HTTPException(
                 status_code=429,
