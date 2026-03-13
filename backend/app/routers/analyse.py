@@ -75,7 +75,7 @@ async def analyse_video(
             limit_mb = _MAX_UPLOAD_BYTES // (1024 * 1024)
             log.warning(
                 "upload_too_large",
-                extra={"filename": file.filename, "bytes_received": total_bytes},
+                extra={"upload_filename": file.filename, "bytes_received": total_bytes},
             )
             raise HTTPException(
                 status_code=413,
@@ -113,7 +113,7 @@ async def analyse_video(
 
         token_usage = result.pop("_token_usage", {})
 
-        log.info("analysis_complete", extra={"user_id": user_id, "filename": file.filename})
+        log.info("analysis_complete", extra={"user_id": user_id, "upload_filename": file.filename})
 
         from app.services.usage_logger import log_usage
         log_usage(
@@ -146,7 +146,7 @@ async def analyse_video(
             )
         # [SECURITY: code-review] Do not leak internal error details to the caller;
         # log the full message server-side and return a generic response.
-        log.error("analyse_failed", extra={"user_id": user_id, "filename": file.filename, "error": msg})
+        log.error("analyse_failed", extra={"user_id": user_id, "upload_filename": file.filename, "error": msg})
         raise HTTPException(
             status_code=500,
             detail="Analysis failed. Please try again or contact support if the problem persists.",
