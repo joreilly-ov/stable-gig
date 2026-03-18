@@ -1,8 +1,20 @@
-# Home Repair Analyser
+# stable-gig
 
-A single-service web app: **FastAPI** backend that serves both the API and the frontend HTML. Users authenticate via Supabase (email/password, magic-link, or Google SSO), then submit home repair **videos** or **photos** for a structured AI assessment powered by **Google Gemini**.
+A two-sided marketplace for home-repair tradesmen. Homeowners upload videos or photos of repair jobs, get an AI-powered assessment, post the job, and hire a vetted contractor. The platform handles the full lifecycle: job posting → bidding → escrow → completion → verified reviews.
 
 **Live:** `https://stable-gig-374485351183.europe-west1.run.app`
+
+---
+
+## Architecture
+
+Single-service deployment on **Google Cloud Run**:
+
+- **FastAPI backend** — serves both the REST API and the frontend SPA from one container
+- **Supabase** — Postgres database, Row Level Security, Auth (email / magic-link / Google OAuth), and Edge Functions (Deno)
+- **Google Gemini** — video and photo AI assessment (2.0 Flash / 1.5 Flash)
+- **Anthropic Claude** — AI pros/cons extraction from review text (`review-sentiment` Edge Function)
+- **Smarty** — US address autocomplete
 
 ---
 
@@ -10,12 +22,18 @@ A single-service web app: **FastAPI** backend that serves both the API and the f
 
 | Feature | Detail |
 |---------|--------|
-| **Video analysis** | Upload a video → Gemini 2.5 Flash returns problem type, urgency, materials, clarifying questions, and extracted video metadata (GPS, device, resolution) |
+| **Video analysis** | Upload a video → Gemini 2.0 Flash returns problem type, urgency, materials, clarifying questions, and extracted metadata (GPS, device, resolution) |
 | **Photo analysis** | Upload 1–5 photos → Gemini 1.5 Flash runs Multi-Perspective Triangulation and returns a diagnosis, urgency score (1–10), required tools, and estimated parts |
 | **Auth** | Email + password, magic-link OTP, and Google OAuth via Supabase |
 | **Rate limiting** | 5–10 req/min per IP on auth endpoints (slowapi) |
 | **Onboarding** | Two-step signup: profile (name, address) + trade interests |
-| **Dashboard tabs** | Video Analysis tab and Photo Analysis tab in a single SPA |
+| **Contractor registration** | Business name, postcode, phone, activity categories, licence/insurance details |
+| **Job lifecycle** | `open → awarded → in_progress → awaiting_review → completed` |
+| **Escrow gate** | `jobs.escrow_status` (`pending → held → funds_released`) unlocks the review flow |
+| **Review system** | Double-blind, transaction-anchored mutual reviews with 14-day fallback reveal |
+| **Categorical ratings** | Quality · Communication · Cleanliness (1–5 each); overall rating auto-generated |
+| **Private feedback** | Admin-only field on every review — never exposed to the tradesman |
+| **AI review summary** | Claude Haiku extracts Pros/Cons from review text; aggregated profile-level summary stored on `contractor_details` |
 
 ---
 
@@ -23,42 +41,66 @@ A single-service web app: **FastAPI** backend that serves both the API and the f
 
 ```
 backend/
-├── main.py                         # FastAPI app — mounts all routers, serves frontend
-├── requirements.txt                # Runtime dependencies
-├── requirements-test.txt           # Test-only dependencies
-├── Dockerfile                      # Cloud Run container image
+├── main.py                              # FastAPI app — mounts all routers, serves frontend
+├── requirements.txt                     # Runtime dependencies
+├── requirements-test.txt                # Test-only dependencies
+├── Dockerfile                           # Cloud Run container image
 ├── pytest.ini
 ├── app/
-│   ├── config.py                   # Pydantic settings (reads env vars / .env)
-│   ├── database.py                 # Supabase client singletons
-│   ├── dependencies.py             # get_current_user / get_optional_user
-│   ├── models/schemas.py           # Shared Pydantic models
+│   ├── config.py                        # Pydantic settings (reads env vars / .env)
+│   ├── database.py                      # Supabase client singletons
+│   ├── dependencies.py                  # get_current_user / get_optional_user
+│   ├── models/schemas.py                # Shared Pydantic models
 │   ├── routers/
-│   │   ├── analyse.py              # POST /analyse          (video)
-│   │   ├── photo_analysis.py       # POST /analyse/photos   (photos)
-│   │   ├── auth.py                 # POST /auth/*           (login, register, magic-link)
-│   │   ├── profiles.py             # GET/PATCH /me/profile
-│   │   ├── user_metadata.py        # GET/PATCH /me/metadata
-│   │   └── address.py             # GET /address/zip, /address/autocomplete
+│   │   ├── analyse.py                   # POST /analyse          (video)
+│   │   ├── photo_analysis.py            # POST /analyse/photos   (photos)
+│   │   ├── auth.py                      # POST /auth/*
+│   │   ├── profiles.py                  # GET/PATCH /me/profile
+│   │   ├── user_metadata.py             # GET/PATCH /me/metadata
+│   │   └── address.py                   # GET /address/zip, /address/autocomplete
 │   └── services/
-│       ├── gemini.py               # Video → Gemini 2.5 Flash
-│       ├── photo_analyzer.py       # Photos → Gemini 1.5 Flash (preprocessing + prompt)
-│       ├── video_meta.py           # hachoir + mutagen metadata extraction
-│       └── smarty.py              # Smarty address autocomplete / ZIP lookup
+│       ├── gemini.py                    # Video → Gemini 2.0 Flash
+│       ├── photo_analyzer.py            # Photos → Gemini 1.5 Flash
+│       ├── video_meta.py                # hachoir + mutagen metadata extraction
+│       └── smarty.py                    # Smarty address autocomplete / ZIP lookup
 ├── static/
-│   └── index.html                  # Deployed frontend (SPA — login, signup, dashboard)
+│   ├── index.html                       # Deployed frontend SPA
+│   └── components/
+│       ├── ReviewMediator.js            # Vanilla JS review flow component (deployed copy)
+│       └── TradesmanRating.jsx          # React review form component (deployed copy)
+├── supabase/
+│   └── migrations/
+│       ├── 001_initial_schema.sql       # profiles, auth hooks
+│       ├── 002_user_metadata.sql        # user_metadata table
+│       ├── 003_contractor_onboarding.sql # jobs, contractors, bids
+│       ├── 004_clean_split.sql          # contractor_details, Clean Split redesign
+│       ├── 005_rating_system.sql        # reviews, double-blind trigger, visible_reviews
+│       ├── 006_categorical_ratings.sql  # escrow_status, sub-ratings, ai_pros_cons
+│       └── 007_quality_rating_private_feedback.sql  # quality sub-rating, private_feedback
 └── tests/
     ├── conftest.py
     ├── test_photo_analyzer_service.py   # 32 unit tests
     └── test_photo_analysis_router.py    # 30 integration tests
 
 frontend/
-└── index.html                      # Local dev copy — keep in sync with backend/static/
+├── index.html                           # Local dev copy — keep in sync with backend/static/
+└── components/
+    ├── ReviewMediator.js                # Vanilla JS: escrow gate, categorical stars, AI reveal
+    └── TradesmanRating.jsx              # React: 5-star form, private feedback, escrow logic
+
+supabase/
+└── functions/
+    ├── analyse/index.ts                 # Edge Function: Gemini video analysis
+    ├── contractors/index.ts             # Edge Function: contractor CRUD
+    └── review-sentiment/index.ts        # Edge Function: Claude AI pros/cons extraction
 
 scripts/
-└── create_asana_tickets.py         # One-shot: file TradePhotoAnalyzer Asana tickets
+└── create_asana_tickets.py             # One-shot: file TradePhotoAnalyzer Asana tickets
 
-.env.example                        # Template — copy to backend/.env for local dev
+docs/
+└── CustomerReviews.md                  # Full review system reference
+
+.env.example                            # Template for all required env vars
 ```
 
 ---
@@ -68,30 +110,51 @@ scripts/
 ```bash
 cd backend
 cp ../.env.example .env
-# Edit .env — set GEMINI_API_KEY (and optionally SUPABASE_* keys)
+# Fill in GEMINI_API_KEY and SUPABASE_* keys in .env
 
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 # App at http://localhost:8000
 ```
 
-**Required env vars:**
+### Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google AI Studio API key |
-| `SUPABASE_URL` | For auth | Your Supabase project URL |
-| `SUPABASE_ANON_KEY` | For auth | Supabase anon (public) key |
-| `SUPABASE_SERVICE_KEY` | For admin ops | Supabase service-role key (bypasses RLS) |
+| Variable | Required | Where used |
+|----------|----------|------------|
+| `GEMINI_API_KEY` | Yes | Video + photo analysis (FastAPI + `analyse` Edge Function) |
+| `ANTHROPIC_API_KEY` | For reviews | `review-sentiment` Edge Function (add in Supabase secrets) |
+| `SUPABASE_URL` | For auth + DB | FastAPI + all Edge Functions |
+| `SUPABASE_ANON_KEY` | For auth + DB | FastAPI + Edge Functions |
+| `SUPABASE_SERVICE_KEY` | For admin ops | `review-sentiment` Edge Function (bypasses RLS) |
 | `SMARTY_AUTH_ID` / `SMARTY_AUTH_TOKEN` | No | Address autocomplete (omit to disable) |
+
+> **Edge Function secrets** are set separately in the Supabase Dashboard → Project Settings → Edge Functions → Secrets (not in `.env`).
 
 ---
 
-## API
+## Tests
+
+62 tests, ~1 s, no API keys or network access needed (Gemini and Supabase are fully mocked).
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-test.txt
+pytest       # all 62 tests
+pytest -v    # verbose
+```
+
+| File | Tests | Covers |
+|------|-------|--------|
+| `test_photo_analyzer_service.py` | 32 | Sharpness detection · image loading · preprocessing (size guard, resize, blur flag, role assignment) · `analyse()` orchestrator |
+| `test_photo_analysis_router.py`  | 30 | Request validation · error→HTTP status mapping · happy-path response shape |
+
+---
+
+## API reference
 
 ### `POST /analyse` — video
 
-`multipart/form-data` with a `file` (video) field. Optional `browser_lat` / `browser_lon` form fields supply GPS when the video has no embedded coordinates.
+`multipart/form-data` with a `file` (video) field. Optional `browser_lat` / `browser_lon` fields supply GPS when the video has no embedded coordinates. Max upload: **350 MB**.
 
 ```json
 {
@@ -112,40 +175,22 @@ uvicorn main:app --reload --port 8000
 }
 ```
 
-Max upload: **350 MB**. Validated via magic bytes (not just Content-Type).
-
 ---
 
 ### `POST /analyse/photos` — photos
 
-JSON body:
-
 ```json
 {
   "images": ["data:image/jpeg;base64,…", "https://example.com/photo.jpg"],
-  "description": "Damp patch on ceiling below the bathroom (10–1000 chars)",
+  "description": "Damp patch on ceiling below the bathroom",
   "trade_category": "damp"
 }
 ```
 
-`images`: 1–5 entries, each a base64 data URI or HTTPS URL. Supported formats: JPEG, PNG, WebP.
+`images`: 1–5 entries (base64 data URI or HTTPS URL). Formats: JPEG, PNG, WebP.
 `trade_category`: optional — one of `plumbing`, `electrical`, `structural`, `damp`, `roofing`, `general`.
 
-```json
-{
-  "likely_issue": "Rising damp caused by failed DPC at ground level",
-  "urgency_score": 7,
-  "required_tools": ["damp meter", "cold chisel", "hawk and trowel"],
-  "estimated_parts": ["DPC membrane", "sand/cement render"],
-  "image_feedback": [
-    { "index": 0, "role": "Wide Shot",  "quality": "ok",     "note": null },
-    { "index": 1, "role": "Close-up",   "quality": "blurry", "note": "Sharpness score 4.2 — retake if possible" }
-  ],
-  "token_usage_estimate": { "prompt_tokens": 1820, "completion_tokens": 312, "total_tokens": 2132 }
-}
-```
-
-Images are preprocessed before Gemini: resized to ≤1200 px, re-encoded as JPEG, and sharpness-checked. Each image is assigned a positional role (Wide Shot → Close-up → Scale/Context → Supplemental A/B).
+Images are preprocessed before Gemini: resized to ≤1200 px, re-encoded as JPEG, sharpness-checked, and assigned positional roles (Wide Shot → Close-up → Scale/Context → Supplemental A/B).
 
 ---
 
@@ -170,21 +215,82 @@ Images are preprocessed before Gemini: resized to ≤1200 px, re-encoded as JPEG
 
 ---
 
-## Tests
+## Supabase Edge Functions
 
-62 tests, ~1 s, no API keys or network access needed (Gemini and Supabase are mocked).
+Deployed to the Supabase project (`szpgcvfemllcsajryyuv`). Each function lives in `supabase/functions/<name>/index.ts`.
+
+| Function | Trigger | What it does |
+|----------|---------|--------------|
+| `analyse` | `POST /functions/v1/analyse` | Uploads video to Gemini Files API, polls until active, returns structured JSON assessment |
+| `contractors` | `POST/GET/PATCH /functions/v1/contractors` | Full CRUD for contractor registration and `contractor_details` |
+| `review-sentiment` | `POST /functions/v1/review-sentiment` | Reads a submitted review, calls **Claude Haiku** to extract Pros/Cons, writes `ai_pros_cons` back to the review, refreshes `contractor_details.ai_review_summary` |
+
+### Deploying Edge Functions
 
 ```bash
-cd backend
-pip install -r requirements.txt -r requirements-test.txt
-pytest          # all 62 tests
-pytest -v       # verbose
+supabase functions deploy analyse
+supabase functions deploy contractors
+supabase functions deploy review-sentiment
 ```
 
-| File | Tests | Covers |
-|------|-------|--------|
-| `test_photo_analyzer_service.py` | 32 | Sharpness detection · image loading · preprocessing (size guard, resize, blur flag, role assignment) · `analyse()` orchestrator |
-| `test_photo_analysis_router.py`  | 30 | Request validation · error→HTTP status mapping · happy-path response shape |
+Required secrets (Supabase Dashboard → Project Settings → Edge Functions → Secrets):
+
+```
+GEMINI_API_KEY=…
+ANTHROPIC_API_KEY=…       ← needed for review-sentiment
+SUPABASE_URL=…
+SUPABASE_ANON_KEY=…
+SUPABASE_SERVICE_KEY=…
+```
+
+---
+
+## Database migrations
+
+Run in order against your Supabase project:
+
+```bash
+supabase db push   # applies all pending migrations
+# or apply manually:
+psql $DATABASE_URL -f backend/supabase/migrations/001_initial_schema.sql
+# … repeat for 002–007
+```
+
+| Migration | Key additions |
+|-----------|---------------|
+| `001_initial_schema` | `profiles`, auth trigger |
+| `002_user_metadata` | `user_metadata` |
+| `003_contractor_onboarding` | `jobs`, `contractors`, `bids` |
+| `004_clean_split` | `contractor_details`, Clean Split identity design |
+| `005_rating_system` | `reviews`, double-blind trigger, `visible_reviews` view, `contractor_rating()` / `client_rating()` helpers |
+| `006_categorical_ratings` | `jobs.escrow_status`; sub-ratings (Cleanliness · Communication · Accuracy); `reviews.ai_pros_cons`; `contractor_details.ai_review_summary` |
+| `007_quality_rating_private_feedback` | Renames `rating_accuracy → rating_quality`; adds `reviews.private_feedback` (admin-only, excluded from `visible_reviews`) |
+
+Full review system documentation: [`docs/CustomerReviews.md`](docs/CustomerReviews.md)
+
+---
+
+## Review & rating system
+
+The platform uses a **double-blind, escrow-gated review system**:
+
+- Reviews are locked until `jobs.escrow_status = 'funds_released'`
+- Both client and contractor rate each other after job completion
+- Ratings are hidden until both submit (or 14 days pass)
+- Three sub-dimensions — **Quality**, **Communication**, **Cleanliness** — replace a single star; overall rating is a generated average
+- A `private_feedback` field on each review is visible only to platform admins (excluded from `visible_reviews`)
+- Claude Haiku summarises review text into a Pros/Cons list, displayed on the contractor's profile
+
+### Frontend components
+
+Two components are provided — use whichever fits your frontend stack:
+
+| Component | Stack | File |
+|-----------|-------|------|
+| `ReviewMediator` | Vanilla JS (no dependencies) | `frontend/components/ReviewMediator.js` |
+| `TradesmanRating` | React + `@supabase/supabase-js` | `frontend/components/TradesmanRating.jsx` |
+
+Both are kept in sync between `frontend/components/` (source) and `backend/static/components/` (deployed copy served by FastAPI).
 
 ---
 
@@ -194,9 +300,8 @@ pytest -v       # verbose
 
 Secrets (`GEMINI_API_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`) are stored in GCP Secret Manager and mounted at runtime.
 
-### Build + deploy
-
 ```bash
+# Build image and deploy in one command
 gcloud builds submit backend/ \
   --tag gcr.io/gen-lang-client-0428658103/stable-gig \
   --project=gen-lang-client-0428658103 && \
@@ -210,21 +315,21 @@ gcloud run deploy stable-gig \
   --project=gen-lang-client-0428658103
 ```
 
-### First-time secrets setup
+### First-time secret setup
 
 ```bash
-echo -n "YOUR_KEY" | gcloud secrets create GEMINI_API_KEY --data-file=- --project=gen-lang-client-0428658103
-echo -n "YOUR_KEY" | gcloud secrets create SUPABASE_ANON_KEY --data-file=- --project=gen-lang-client-0428658103
-echo -n "YOUR_KEY" | gcloud secrets create SUPABASE_SERVICE_KEY --data-file=- --project=gen-lang-client-0428658103
+echo -n "KEY" | gcloud secrets create GEMINI_API_KEY     --data-file=- --project=gen-lang-client-0428658103
+echo -n "KEY" | gcloud secrets create SUPABASE_ANON_KEY  --data-file=- --project=gen-lang-client-0428658103
+echo -n "KEY" | gcloud secrets create SUPABASE_SERVICE_KEY --data-file=- --project=gen-lang-client-0428658103
 ```
 
-To rotate a secret: `echo -n "NEW_KEY" | gcloud secrets versions add SECRET_NAME --data-file=- --project=gen-lang-client-0428658103`, then redeploy.
+To rotate: `echo -n "NEW_KEY" | gcloud secrets versions add SECRET_NAME --data-file=- --project=gen-lang-client-0428658103`, then redeploy.
 
 ---
 
 ## Frontend notes
 
-- `backend/static/index.html` and `frontend/index.html` are identical. Edit one, copy to the other.
+- `backend/static/index.html` and `frontend/index.html` are identical. Edit one, copy to the other. Same rule applies to files in `frontend/components/` ↔ `backend/static/components/`.
 - The SPA handles `/`, `/login`, `/signup`, and `/dashboard` — all served by FastAPI.
 - Auth tokens are stored in `sessionStorage` (cleared on tab close).
-- The dashboard has two tabs: **Video Analysis** and **Photo Analysis**. Tab state is client-side only (no URL change).
+- The dashboard has two tabs: **Video Analysis** and **Photo Analysis**.
