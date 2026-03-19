@@ -586,6 +586,22 @@
           Sign in with Google
         </button>
         <p class="auth-switch">No account? <a href="#" id="go-register-btn">Create one</a></p>
+        <p class="auth-switch"><a href="#" id="forgot-pw-btn">Forgot your password?</a></p>
+      </div>
+
+      <!-- Step 4: forgot password — request reset email -->
+      <div id="login-step-4" style="display:none">
+        <h2>Reset your password</h2>
+        <p class="form-info">Enter your email and we'll send you a reset link.</p>
+        <div id="forgot-error" class="form-error" style="display:none"></div>
+        <div id="forgot-success" class="form-info" style="display:none"></div>
+        <div class="form-group">
+          <label for="forgot-email">Email address</label>
+          <input type="email" id="forgot-email" placeholder="you@example.com"
+                 autocomplete="email" />
+        </div>
+        <button class="btn-primary" id="forgot-submit-btn">Send reset link</button>
+        <button class="back-link" id="back-from-forgot-btn">&#8592; Back to sign in</button>
       </div>
 
       <!-- Step 2: magic link sent -->
@@ -622,6 +638,26 @@
         <button class="back-link" id="back-to-login-btn">&#8592; Back to sign in</button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ===== RESET PASSWORD PAGE ===== -->
+  <div id="page-reset-password" class="centered-page" style="display:none">
+    <div class="login-card">
+      <h2>Choose a new password</h2>
+      <div id="reset-error" class="form-error" style="display:none"></div>
+      <div id="reset-success" class="form-info" style="display:none"></div>
+      <div class="form-group">
+        <label for="new-password">New password</label>
+        <input type="password" id="new-password" placeholder="At least 8 characters"
+               autocomplete="new-password" />
+      </div>
+      <div class="form-group">
+        <label for="new-password-confirm">Confirm new password</label>
+        <input type="password" id="new-password-confirm" placeholder="Repeat password"
+               autocomplete="new-password" />
+      </div>
+      <button class="btn-primary" id="reset-submit-btn">Set new password</button>
     </div>
   </div>
 
@@ -805,9 +841,10 @@
     // Page render functions
     // ------------------------------------------------------------------ //
     function showPage(name) {
-      document.getElementById("page-login").style.display     = name === "login"     ? "" : "none";
-      document.getElementById("page-signup").style.display    = name === "signup"    ? "" : "none";
-      document.getElementById("page-dashboard").style.display = name === "dashboard" ? "" : "none";
+      document.getElementById("page-login").style.display          = name === "login"          ? "" : "none";
+      document.getElementById("page-signup").style.display         = name === "signup"         ? "" : "none";
+      document.getElementById("page-dashboard").style.display      = name === "dashboard"      ? "" : "none";
+      document.getElementById("page-reset-password").style.display = name === "reset-password" ? "" : "none";
     }
 
     function renderLoginPage() {
@@ -829,14 +866,19 @@
       renderAuthBar();
     }
 
+    function renderResetPasswordPage() {
+      showPage("reset-password");
+    }
+
     // ------------------------------------------------------------------ //
     // Router
     // ------------------------------------------------------------------ //
     const ROUTES = {
-      "/":          renderLoginPage,
-      "/login":     renderLoginPage,
-      "/signup":    protectedRoute(renderSignupPage,    { requireSetup: false }),
-      "/dashboard": protectedRoute(renderDashboardPage, { requireSetup: true  }),
+      "/":               renderLoginPage,
+      "/login":          renderLoginPage,
+      "/signup":         protectedRoute(renderSignupPage,       { requireSetup: false }),
+      "/dashboard":      protectedRoute(renderDashboardPage,    { requireSetup: true  }),
+      "/reset-password": renderResetPasswordPage,
     };
 
     function navigate(path) {
@@ -867,13 +909,22 @@
         }
       } catch {}
 
-      // 2. Handle Google OAuth redirect — token arrives in URL hash
+      // 2. Handle URL hash tokens — Google OAuth or password-reset recovery link
       const hash = window.location.hash.slice(1);
       if (hash.includes("access_token=")) {
         const params = new URLSearchParams(hash);
         const token  = params.get("access_token");
+        const type   = params.get("type");
         if (token) {
-          window.history.replaceState(null, "", window.location.pathname);
+          window.history.replaceState(null, "", "/reset-password");
+          if (type === "recovery") {
+            // Store the recovery token so the reset-password page can use it
+            sessionStorage.setItem("recovery_token", token);
+            // Do NOT establish a normal session — route straight to the reset page
+            route();
+            return;
+          }
+          // Google OAuth / magic-link — normal sign-in
           await establishSession(token, "");
         }
       }
@@ -956,6 +1007,7 @@
       document.getElementById("login-step-1").style.display = n === 1 ? "" : "none";
       document.getElementById("login-step-2").style.display = n === 2 ? "" : "none";
       document.getElementById("login-step-3").style.display = n === 3 ? "" : "none";
+      document.getElementById("login-step-4").style.display = n === 4 ? "" : "none";
       clearLoginErrors();
     }
 
@@ -974,6 +1026,8 @@
     function clearLoginErrors() {
       document.getElementById("login-error").style.display = "none";
       document.getElementById("register-error").style.display = "none";
+      document.getElementById("forgot-error").style.display = "none";
+      document.getElementById("forgot-success").style.display = "none";
     }
 
     // ---- Password sign-in ----
@@ -1103,6 +1157,112 @@
     });
     document.getElementById("reg-confirm").addEventListener("keydown", (e) => {
       if (e.key === "Enter") document.getElementById("register-btn").click();
+    });
+
+    // ---- Forgot password ----
+    document.getElementById("forgot-pw-btn").addEventListener("click", (e) => {
+      e.preventDefault();
+      const email = document.getElementById("auth-email").value.trim();
+      if (email) document.getElementById("forgot-email").value = email;
+      showLoginStep(4);
+    });
+
+    document.getElementById("back-from-forgot-btn").addEventListener("click", () => showLoginStep(1));
+
+    document.getElementById("forgot-submit-btn").addEventListener("click", async () => {
+      const email = document.getElementById("forgot-email").value.trim();
+      if (!email) {
+        const el = document.getElementById("forgot-error");
+        el.textContent = "Please enter your email address.";
+        el.style.display = "";
+        return;
+      }
+
+      const btn = document.getElementById("forgot-submit-btn");
+      btn.disabled = true;
+      btn.textContent = "Sending…";
+
+      try {
+        await fetch("/auth/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        // Always show the success message — server never reveals if address exists
+        const ok = document.getElementById("forgot-success");
+        ok.textContent = `If ${email} is registered you'll receive a reset link shortly. Check your spam folder too.`;
+        ok.style.display = "";
+        btn.disabled = true;
+        btn.textContent = "Link sent";
+      } catch {
+        const el = document.getElementById("forgot-error");
+        el.textContent = "Something went wrong. Please try again.";
+        el.style.display = "";
+        btn.disabled = false;
+        btn.textContent = "Send reset link";
+      }
+    });
+
+    document.getElementById("forgot-email").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("forgot-submit-btn").click();
+    });
+
+    // ---- Reset password page ----
+    document.getElementById("reset-submit-btn").addEventListener("click", async () => {
+      const password = document.getElementById("new-password").value;
+      const confirm  = document.getElementById("new-password-confirm").value;
+      const token    = sessionStorage.getItem("recovery_token");
+
+      const errEl = document.getElementById("reset-error");
+      const okEl  = document.getElementById("reset-success");
+      errEl.style.display = "none";
+      okEl.style.display  = "none";
+
+      if (!token) {
+        errEl.textContent = "Reset link has expired or is invalid. Please request a new one.";
+        errEl.style.display = "";
+        return;
+      }
+      if (password.length < 8) {
+        errEl.textContent = "Password must be at least 8 characters.";
+        errEl.style.display = "";
+        return;
+      }
+      if (password !== confirm) {
+        errEl.textContent = "Passwords do not match.";
+        errEl.style.display = "";
+        return;
+      }
+
+      const btn = document.getElementById("reset-submit-btn");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+
+      try {
+        const r = await fetch("/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: token, new_password: password }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || "Password reset failed.");
+
+        sessionStorage.removeItem("recovery_token");
+        okEl.textContent = "Password updated! Signing you in…";
+        okEl.style.display = "";
+
+        await establishSession(data.access_token, "");
+        setTimeout(() => route(), 1200);
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = "";
+        btn.disabled = false;
+        btn.textContent = "Set new password";
+      }
+    });
+
+    document.getElementById("new-password-confirm").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("reset-submit-btn").click();
     });
 
     // ---- Google OAuth (implicit flow — token returned in URL hash) ----

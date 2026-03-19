@@ -41,6 +41,15 @@ class RegisterResponse(BaseModel):
     user_id: str
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordUpdateRequest(BaseModel):
+    access_token: str
+    new_password: str
+
+
 # --- Profiles ---
 
 class ProfileUpdate(BaseModel):
