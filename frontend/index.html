@@ -1587,6 +1587,8 @@
         try {
           data = await resp.json();
         } catch {
+          if (resp.status === 413)
+            throw new Error("Video is too large to upload. Please trim it under 350 MB and try again.");
           throw new Error(
             `Server returned an unreadable response (HTTP ${resp.status}). ` +
             `Check that GEMINI_API_KEY is set.`
@@ -1862,7 +1864,11 @@
 
         let data;
         try { data = await resp.json(); }
-        catch { throw new Error(`Server returned an unreadable response (HTTP ${resp.status}).`); }
+        catch {
+          if (resp.status === 413)
+            throw new Error("Request is too large. Please reduce the number or size of photos and try again.");
+          throw new Error(`Server returned an unreadable response (HTTP ${resp.status}).`);
+        }
 
         if (!resp.ok) throw new Error(data.detail || `Server error ${resp.status}`);
 
