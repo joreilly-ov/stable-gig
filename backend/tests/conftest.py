@@ -42,6 +42,14 @@ _stub("google.generativeai.types")
 _supabase_mock = _stub("supabase")
 _supabase_mock.create_client.return_value = MagicMock()
 
+# main.py — auth.py does `from main import limiter` at module level.
+# Stubbing it here (before any test module is imported) prevents the
+# circular import: test → app.routers.auth → main → app.routers.auth.
+_fake_limiter = MagicMock()
+_fake_limiter.limit.return_value = lambda f: f   # pass-through decorator
+_main_stub = _stub("main")
+_main_stub.limiter = _fake_limiter
+
 # ---------------------------------------------------------------------------
 # 2. Stub all external service credentials so the app can be imported
 # ---------------------------------------------------------------------------
