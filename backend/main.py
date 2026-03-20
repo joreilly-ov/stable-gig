@@ -61,19 +61,12 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Must be registered AFTER CORSMiddleware so that CORSMiddleware (the last-added
-# middleware) becomes the outermost wrapper.  That way, even when this middleware
-# returns a 413 early, CORSMiddleware still adds Access-Control-Allow-Origin to
-# the response — preventing the browser from misreporting a size error as a CORS
-# error.  The check reads only the Content-Length *header*, so the large body is
-# never buffered or forwarded to Cloud Run's infrastructure.
+# _MaxBodySizeMiddleware must be registered FIRST so CORSMiddleware (registered
+# last) becomes the outermost layer.  Starlette builds the stack with the
+# last-registered middleware outermost, so every response — including the early
+# 413 from this middleware — is processed by CORSMiddleware before leaving the
+# ASGI server.  The check reads only the Content-Length *header* so the body is
+# never buffered before the rejection goes out.
 _MAX_UPLOAD_BYTES = 350 * 1024 * 1024  # 350 MB — matches the per-route limit
 
 
@@ -98,7 +91,14 @@ class _MaxBodySizeMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-app.add_middleware(_MaxBodySizeMiddleware)
+app.add_middleware(_MaxBodySizeMiddleware)  # registered first → inner layer
+
+app.add_middleware(  # registered last → outermost layer, wraps _MaxBodySizeMiddleware
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Routers ---
 app.include_router(analyse.router)

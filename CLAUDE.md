@@ -130,11 +130,17 @@ gcloud builds submit backend/ \
   --project=gen-lang-client-0428658103
 
 # 3. Deploy to Cloud Run
+# --execution-environment gen2  removes the 32 MiB request-body cap present in
+#   gen1, allowing video uploads up to the app-level 350 MB limit.
+# --memory 2Gi                  ensures the container can buffer a full 350 MB
+#   upload alongside the Gemini SDK overhead without OOM-killing the instance.
 gcloud run deploy stable-gig \
   --image gcr.io/gen-lang-client-0428658103/stable-gig \
   --platform managed \
   --region europe-west1 \
   --allow-unauthenticated \
+  --execution-environment gen2 \
+  --memory 2Gi \
   --set-env-vars SUPABASE_URL=https://szpgcvfemllcsajryyuv.supabase.co \
   --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest \
   --project=gen-lang-client-0428658103
@@ -150,6 +156,8 @@ gcloud run deploy stable-gig \
   --image gcr.io/gen-lang-client-0428658103/stable-gig \
   --platform managed \
   --region europe-west1 \
+  --execution-environment gen2 \
+  --memory 2Gi \
   --set-env-vars SUPABASE_URL=https://szpgcvfemllcsajryyuv.supabase.co \
   --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest \
   --project=gen-lang-client-0428658103
