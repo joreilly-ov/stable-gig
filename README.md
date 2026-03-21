@@ -8,11 +8,12 @@ A two-sided marketplace for home-repair tradesmen. Homeowners upload videos or p
 
 ## Architecture
 
-Single-service deployment on **Google Cloud Run**:
+Single-service backend on **Google Cloud Run** with two separate frontends:
 
-- **FastAPI backend** — serves both the REST API and the frontend SPA from one container
+- **FastAPI backend** — serves the REST API and a built-in SPA from one container; the primary web UI
+- **Lovable PWA** — separate React app built in Lovable; installable on iOS / Android (see [PWA](#progressive-web-app-lovable) below)
 - **Supabase** — Postgres database, Row Level Security, Auth (email / magic-link / Google OAuth), and Edge Functions (Deno)
-- **Google Gemini** — video and photo AI assessment (2.0 Flash / 1.5 Flash)
+- **Google Gemini** — video and photo AI assessment (2.5 Flash)
 - **Anthropic Claude** — AI pros/cons extraction from review text (`review-sentiment` Edge Function)
 - **Smarty** — US address autocomplete
 
@@ -35,6 +36,7 @@ Single-service deployment on **Google Cloud Run**:
 | **Categorical ratings** | Quality · Communication · Cleanliness (1–5 each); overall rating auto-generated |
 | **Private feedback** | Admin-only field on every review — never exposed to the tradesman |
 | **AI review summary** | Claude Haiku extracts Pros/Cons from review text; aggregated profile-level summary stored on `contractor_details` |
+| **Progressive Web App** | Lovable frontend ships a web manifest + service worker; installable on iOS and Android home screen for a native-app feel |
 
 ---
 
@@ -156,7 +158,7 @@ pytest -v    # verbose
 
 ### `POST /analyse` — video
 
-`multipart/form-data` with a `file` (video) field. Optional `browser_lat` / `browser_lon` fields supply GPS when the video has no embedded coordinates. Max upload: **350 MB**.
+`multipart/form-data` with a `file` (video) field. Optional `browser_lat` / `browser_lon` fields supply GPS when the video has no embedded coordinates. Max upload: **30 MB** (Cloud Run's GFE load balancer enforces a 32 MB hard cap; the client-side check keeps uploads under this limit).
 
 ```json
 {
@@ -301,6 +303,9 @@ psql $DATABASE_URL -f backend/supabase/migrations/001_initial_schema.sql
 | `005_rating_system` | `reviews`, double-blind trigger, `visible_reviews` view, `contractor_rating()` / `client_rating()` helpers |
 | `006_categorical_ratings` | `jobs.escrow_status`; sub-ratings (Cleanliness · Communication · Accuracy); `reviews.ai_pros_cons`; `contractor_details.ai_review_summary` |
 | `007_quality_rating_private_feedback` | Renames `rating_accuracy → rating_quality`; adds `reviews.private_feedback` (admin-only, excluded from `visible_reviews`) |
+| `008_private_feedback_column_security` | Column-level `REVOKE SELECT (private_feedback)` from `authenticated`/`anon`; explicit column grants for all other fields |
+
+Apply: `supabase db push` or run each file manually with `psql`.
 
 Full review system documentation: [`docs/CustomerReviews.md`](docs/CustomerReviews.md)
 
@@ -336,16 +341,26 @@ Both are kept in sync between `frontend/components/` (source) and `backend/stati
 
 Secrets (`GEMINI_API_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`) are stored in GCP Secret Manager and mounted at runtime.
 
+> Run as **two separate commands** — the build must complete before the deploy can reference the new image.
+
 ```bash
-# Build image and deploy in one command
+# Step 1 — build and push the container image
 gcloud builds submit backend/ \
   --tag gcr.io/gen-lang-client-0428658103/stable-gig \
-  --project=gen-lang-client-0428658103 && \
+  --project=gen-lang-client-0428658103
+```
+
+```bash
+# Step 2 — deploy
+# --execution-environment gen2  required: removes the 32 MB gen1 request-body cap
+# --memory 2Gi                  buffers video uploads + Gemini SDK overhead
 gcloud run deploy stable-gig \
   --image gcr.io/gen-lang-client-0428658103/stable-gig \
   --platform managed \
   --region europe-west1 \
   --allow-unauthenticated \
+  --execution-environment gen2 \
+  --memory 2Gi \
   --set-env-vars SUPABASE_URL=https://szpgcvfemllcsajryyuv.supabase.co \
   --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest \
   --project=gen-lang-client-0428658103
@@ -365,7 +380,25 @@ To rotate: `echo -n "NEW_KEY" | gcloud secrets versions add SECRET_NAME --data-f
 
 ## Frontend notes
 
+### FastAPI-served SPA
+
 - `backend/static/index.html` and `frontend/index.html` are identical. Edit one, copy to the other. Same rule applies to files in `frontend/components/` ↔ `backend/static/components/`.
 - The SPA handles `/`, `/login`, `/signup`, and `/dashboard` — all served by FastAPI.
 - Auth tokens are stored in `sessionStorage` (cleared on tab close).
 - The dashboard has two tabs: **Video Analysis** and **Photo Analysis**.
+
+### Progressive Web App (Lovable)
+
+The production mobile experience is a **PWA built in Lovable** — a separate React project that is not stored in this repository.
+
+| Property | Detail |
+|----------|--------|
+| Hosted by | Lovable (own domain / Vercel-backed CDN) |
+| Installable | Yes — iOS Safari "Add to Home Screen" and Android Chrome install prompt |
+| Offline support | Service worker caches the app shell; API calls require connectivity |
+| Backend | Same Cloud Run URL; all requests are cross-origin |
+| CORS | Backend uses `allow_origins=["*"]` specifically to support this |
+| Upload limit | 30 MB client-side (enforced in the Lovable app); matches the Cloud Run GFE wall |
+| Auth | Supabase JWT sent as `Authorization: Bearer <token>`; `POST /analyse/photos` requires auth; `POST /analyse` (video) is public |
+
+To make changes to the Lovable PWA, edit it in the Lovable editor. Changes to the backend API (new fields, new endpoints) should be reflected in the Lovable project and documented here.

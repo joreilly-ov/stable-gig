@@ -4,6 +4,10 @@
 
 **stable-gig** — a two-sided marketplace for home-repair tradesmen. FastAPI backend that also serves the frontend HTML. Homeowners get AI assessments of repair jobs (video or photo), post jobs, hire contractors, and leave verified escrow-gated reviews. Review text is summarised by Claude AI into a Pros/Cons list displayed on the contractor's profile.
 
+There are **two separate frontends**:
+- **FastAPI-served SPA** (`backend/static/index.html`) — the default UI at the Cloud Run URL, served at `/`
+- **Lovable PWA** — a separate React app built and hosted in Lovable; installable on mobile (iOS/Android home screen). Talks to the same Cloud Run backend via cross-origin requests (CORS is configured `allow_origins=["*"]` for this reason).
+
 ## Running locally
 
 ```bash
@@ -32,16 +36,25 @@ uvicorn main:app --reload --port 8000
 | `backend/tests/test_photo_analyzer_service.py` | 32 unit tests for the photo analyzer service |
 | `backend/tests/test_photo_analysis_router.py` | 30 integration tests for the photo analysis endpoint |
 
-### Frontend
+### Frontend — FastAPI-served SPA
 
 | File | Purpose |
 |------|---------|
-| `backend/static/index.html` | **Deployed** frontend SPA, served by FastAPI |
+| `backend/static/index.html` | **Deployed** frontend SPA, served by FastAPI at `/` |
 | `frontend/index.html` | Local dev copy — keep in sync with `backend/static/index.html` |
 | `frontend/components/ReviewMediator.js` | Vanilla JS: escrow-gated review flow, categorical star ratings, AI Pros/Cons reveal |
 | `frontend/components/TradesmanRating.jsx` | React: 5-star form (Quality/Communication/Cleanliness), private feedback field, escrow logic |
 | `backend/static/components/ReviewMediator.js` | Deployed copy — keep in sync with `frontend/components/` counterpart |
 | `backend/static/components/TradesmanRating.jsx` | Deployed copy — keep in sync with `frontend/components/` counterpart |
+
+### Frontend — Lovable PWA
+
+A separate React app developed and hosted in **Lovable**. Source lives in the Lovable project (not in this repo). Key characteristics:
+
+- **Progressive Web App**: includes a web manifest and service worker; users can "Add to Home Screen" on iOS and Android for a native-app feel
+- **Cross-origin**: all API calls target `https://stable-gig-374485351183.europe-west1.run.app` — this is why the backend has `CORSMiddleware(allow_origins=["*"])`
+- **Upload limit**: client-side cap is **30 MB** (Cloud Run's GFE load balancer enforces a 32 MB hard limit before requests reach the app; the cap prevents hitting that wall)
+- **Auth**: uses `@supabase/supabase-js` with the same Supabase project; the JWT is sent as `Authorization: Bearer <token>` on protected endpoints
 
 ### Supabase Edge Functions
 
@@ -62,6 +75,7 @@ uvicorn main:app --reload --port 8000
 | `backend/supabase/migrations/005_rating_system.sql` | `reviews`, double-blind trigger, `visible_reviews` view, `contractor_rating()` / `client_rating()` helpers |
 | `backend/supabase/migrations/006_categorical_ratings.sql` | `jobs.escrow_status`; sub-ratings (Cleanliness · Communication · Accuracy); `reviews.ai_pros_cons`; `contractor_details.ai_review_summary` |
 | `backend/supabase/migrations/007_quality_rating_private_feedback.sql` | Renames `rating_accuracy → rating_quality`; adds `reviews.private_feedback` (admin-only, excluded from `visible_reviews`) |
+| `backend/supabase/migrations/008_private_feedback_column_security.sql` | Column-level `REVOKE SELECT (private_feedback)` from `authenticated`/`anon`; re-grants all other columns |
 
 ### Other
 
@@ -94,12 +108,15 @@ See `tests/conftest.py` for the stubbing strategy and the reason for the `sys.mo
 ## Architecture notes
 
 - **Single service on Cloud Run**: FastAPI serves both the API and the UI from one Docker container.
+- **Two frontends**: the FastAPI-served SPA (`/`) and the Lovable PWA (separate origin). CORS is `allow_origins=["*"]` to support the cross-origin Lovable app.
+- **Lovable PWA**: installable on iOS/Android home screen. Upload limit is 30 MB client-side (Cloud Run's GFE enforces a 32 MB hard cap before the app runs; no CORS headers are added to GFE rejections).
 - **Supabase** handles Postgres + RLS, Auth (email / magic-link / Google OAuth), and Edge Functions (Deno/TypeScript).
 - **GEMINI_API_KEY** + Supabase keys stored in GCP Secret Manager, mounted into Cloud Run at runtime.
 - **ANTHROPIC_API_KEY** stored as a Supabase Edge Function secret — only used by `review-sentiment`, not Cloud Run.
 - **Frontend duplication**: `frontend/` ↔ `backend/static/` are kept manually in sync. Edit one, copy to the other (applies to `index.html` and both component files).
 - **Clean Split**: `contractors.id = contractor_details.id = auth.users.id`. No separate `user_id` FK on `contractors`.
-- **Review system**: double-blind, transaction-anchored (`job_id`), escrow-gated (`jobs.escrow_status = 'funds_released'`). Sub-ratings: Quality · Communication · Cleanliness. Overall `rating` is a Postgres `GENERATED ALWAYS` column (avg of three sub-ratings). `private_feedback` is excluded from `visible_reviews` — admin access via service role only. Claude Haiku summarises each review body into a Pros/Cons list via the `review-sentiment` Edge Function.
+- **Review system**: double-blind, transaction-anchored (`job_id`), escrow-gated (`jobs.escrow_status = 'funds_released'`). Sub-ratings: Quality · Communication · Cleanliness. Overall `rating` is a Postgres `GENERATED ALWAYS` column (avg of three sub-ratings). `private_feedback` is excluded from `visible_reviews` AND protected by column-level `REVOKE SELECT` on the raw table — admin access via service role only. Claude Haiku summarises each review body into a Pros/Cons list via the `review-sentiment` Edge Function.
+- **Photo analysis auth**: `POST /analyse/photos` requires a valid Supabase JWT (`get_current_user`). The video endpoint `POST /analyse` allows unauthenticated access (public demo).
 - **Video metadata**: extracted locally before uploading to Gemini using `hachoir` (technical metadata) and `mutagen` (embedded MP4 tags). Both fail silently — best-effort only.
 
 ## Deploying to Cloud Run (manual)
