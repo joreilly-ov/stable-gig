@@ -7,8 +7,8 @@ endpoint is handled transparently by Starlette's test infrastructure.
 photo_analyzer.analyse() is mocked in every test — no Gemini API calls
 are made and no real images need to be processed.
 
-auth dependency (get_optional_user) always returns None so that no
-Supabase connection is needed.
+auth dependency (get_current_user) is overridden with a stub user so that
+no Supabase connection is needed.
 """
 
 from unittest.mock import AsyncMock, patch
@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 # has a circular dependency: auth.py imports `limiter` from main.py at
 # collection time, which breaks pytest imports.
 from app.routers.photo_analysis import router
-from app.dependencies import get_optional_user
+from app.dependencies import get_current_user
 
 app = FastAPI()
 app.include_router(router)
@@ -57,8 +57,10 @@ _MOCK_RESULT = {
 
 @pytest.fixture(autouse=True)
 def override_auth():
-    """Replace the auth dependency with a no-op that returns None."""
-    app.dependency_overrides[get_optional_user] = lambda: None
+    """Replace the auth dependency with a stub that returns a minimal user object."""
+    from types import SimpleNamespace
+    stub_user = SimpleNamespace(id="00000000-0000-0000-0000-000000000001")
+    app.dependency_overrides[get_current_user] = lambda: stub_user
     yield
     app.dependency_overrides.clear()
 

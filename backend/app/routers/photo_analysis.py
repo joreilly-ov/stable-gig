@@ -13,7 +13,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from app.dependencies import get_optional_user
+from app.dependencies import get_current_user
 from app.services import photo_analyzer
 
 router = APIRouter(tags=["photo_analysis"])
@@ -120,9 +120,9 @@ class PhotoAnalysisResponse(BaseModel):
 )
 async def analyse_photos(
     body: PhotoAnalysisRequest,
-    user=Depends(get_optional_user),
+    user=Depends(get_current_user),
 ):
-    user_id = str(user.id) if user else None
+    user_id = str(user.id)
 
     log.info(
         "photo_analysis_request",
