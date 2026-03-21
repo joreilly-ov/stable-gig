@@ -6,7 +6,7 @@ All external calls are mocked:
   - app.services.gemini.analyse        (Gemini SDK — runs in to_thread)
   - app.services.video_meta.extract_video_metadata
   - app.services.usage_logger.log_usage
-  - app.database.get_supabase          (for _store_result persistence)
+  - app.database.get_supabase_admin    (for _store_result — service role bypasses RLS)
   - app.dependencies.get_optional_user (auth dependency)
 
 Coverage
@@ -165,7 +165,9 @@ def _patches(gemini_result=None, meta=None, raises=None, supabase=None):
     )
     mock_log = stack.enter_context(patch("app.services.usage_logger.log_usage"))
     mock_sb = supabase if supabase is not None else MagicMock()
-    stack.enter_context(patch("app.database.get_supabase", return_value=mock_sb))
+    # _store_result now uses get_supabase_admin (service-role key) so it can
+    # bypass RLS when writing on behalf of the authenticated user.
+    stack.enter_context(patch("app.database.get_supabase_admin", return_value=mock_sb))
     # stash the mocks as attributes for assertions
     stack.mock_log = mock_log   # type: ignore[attr-defined]
     stack.mock_sb = mock_sb     # type: ignore[attr-defined]

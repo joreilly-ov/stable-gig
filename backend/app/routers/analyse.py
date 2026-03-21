@@ -9,7 +9,7 @@ import logging
 import os
 import tempfile
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 
 from app.dependencies import get_optional_user
 from app.services import gemini, video_meta as vm
@@ -53,6 +53,7 @@ async def analyse_video(
     file: UploadFile = File(...),
     browser_lat: float | None = Form(default=None),
     browser_lon: float | None = Form(default=None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     user=Depends(get_optional_user),
 ):
     # [SECURITY: code-review] Reject non-video Content-Type (first, cheap check).
@@ -126,9 +127,12 @@ async def analyse_video(
             total_tokens=token_usage.get("total_tokens", 0),
         )
 
-        # Persist when authenticated
+        # Persist when authenticated — run in background so storage latency
+        # does not delay the response the user is waiting for.
         if user is not None:
-            _store_result(user.id, file.filename or "upload", result)
+            background_tasks.add_task(
+                _store_result, str(user.id), file.filename or "upload", result
+            )
 
         return result
 
@@ -157,12 +161,22 @@ async def analyse_video(
 
 
 def _store_result(user_id: str, filename: str, result: dict) -> None:
-    """Write analysis result to the videos table. Fails silently to avoid blocking the response."""
-    try:
-        from app.database import get_supabase
+    """Persist analysis result to the videos table.
 
-        get_supabase().table("videos").insert(
+    Must use the service-role client: the anon client has no session so
+    auth.uid() returns NULL and the 'videos: insert own' RLS policy blocks
+    every write.  Service role bypasses RLS and can write on behalf of the
+    authenticated user identified by user_id.
+
+    Called via BackgroundTasks so it runs after the response is sent.
+    Failures are logged but never surface to the caller.
+    """
+    try:
+        from app.database import get_supabase_admin
+
+        get_supabase_admin().table("videos").insert(
             {"user_id": user_id, "filename": filename, "analysis_result": result}
         ).execute()
+        log.info("store_result_ok", extra={"user_id": user_id, "filename": filename})
     except Exception as exc:
         log.warning("store_result_failed", extra={"user_id": user_id, "error": str(exc)})
