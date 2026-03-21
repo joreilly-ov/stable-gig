@@ -24,7 +24,7 @@ uvicorn main:app --reload --port 8000
 
 | File | Purpose |
 |------|---------|
-| `backend/main.py` | FastAPI app — `GET /` (UI), `POST /analyse`, `POST /analyse/photos` |
+| `backend/main.py` | FastAPI app — `GET /` (UI), `POST /analyse`, `POST /analyse/photos`, `/jobs`, `/jobs/{id}/bids` |
 | `backend/requirements.txt` | Python runtime dependencies |
 | `backend/requirements-test.txt` | Test-only dependencies (pytest, pytest-asyncio) |
 | `backend/Dockerfile` | Container image for Cloud Run |
@@ -32,6 +32,8 @@ uvicorn main:app --reload --port 8000
 | `backend/app/services/photo_analyzer.py` | Image load, preprocess, sharpness check, Gemini 1.5 Flash |
 | `backend/app/routers/task_breakdown.py` | `POST /analyse/breakdown` endpoint |
 | `backend/app/services/task_breakdown.py` | Claude Haiku: decompose repair description into ordered task list |
+| `backend/app/routers/jobs.py` | `POST/GET /jobs`, `GET/PATCH /jobs/{id}` — homeowner job lifecycle |
+| `backend/app/routers/bids.py` | `POST/GET /jobs/{id}/bids`, `PATCH /jobs/{id}/bids/{bid_id}`, `GET /me/bids` — contractor bidding |
 | `backend/tests/conftest.py` | Shared test fixtures + module stubs |
 | `backend/tests/test_photo_analyzer_service.py` | 32 unit tests for the photo analyzer service |
 | `backend/tests/test_photo_analysis_router.py` | 30 integration tests for the photo analysis endpoint |
@@ -76,6 +78,8 @@ A separate React app developed and hosted in **Lovable**. Source lives in the Lo
 | `backend/supabase/migrations/006_categorical_ratings.sql` | `jobs.escrow_status`; sub-ratings (Cleanliness · Communication · Accuracy); `reviews.ai_pros_cons`; `contractor_details.ai_review_summary` |
 | `backend/supabase/migrations/007_quality_rating_private_feedback.sql` | Renames `rating_accuracy → rating_quality`; adds `reviews.private_feedback` (admin-only, excluded from `visible_reviews`) |
 | `backend/supabase/migrations/008_private_feedback_column_security.sql` | Column-level `REVOKE SELECT (private_feedback)` from `authenticated`/`anon`; re-grants all other columns |
+| `backend/supabase/migrations/009_jobs_analysis_result.sql` | `jobs.analysis_result JSONB` — stores Gemini output with the job so it survives page refresh |
+| `backend/supabase/migrations/010_bidding_status_expansion.sql` | Expands `jobs.status` to `draft \| open \| awarded \| in_progress \| completed \| cancelled` |
 
 ### Other
 
@@ -90,7 +94,7 @@ A separate React app developed and hosted in **Lovable**. Source lives in the Lo
 ```bash
 cd backend
 pip install -r requirements.txt -r requirements-test.txt
-pytest            # 80 tests, ~1 s, no API keys needed
+pytest            # 292 tests, ~2 s, no API keys needed
 pytest -v         # verbose output
 ```
 
@@ -101,6 +105,7 @@ pytest -v         # verbose output
 | `tests/test_photo_analyzer_service.py` | 32 | Sharpness detection · image loading · preprocessing pipeline (size guard, resize, blur flag, role assignment) · `analyse()` orchestrator |
 | `tests/test_photo_analysis_router.py` | 30 | Request validation · error→HTTP status mapping · happy-path response shape |
 | `tests/test_task_breakdown.py` | 18 | Router error mapping · service validation · prompt content · float coercion · fence stripping |
+| `tests/test_jobs_bids_router.py` | 30 | Job CRUD · status transitions · contractor bid placement · accept/reject · auth guards |
 
 Gemini and Supabase are never called — all external dependencies are mocked.
 See `tests/conftest.py` for the stubbing strategy and the reason for the `sys.modules` pre-population.
@@ -118,6 +123,7 @@ See `tests/conftest.py` for the stubbing strategy and the reason for the `sys.mo
 - **Review system**: double-blind, transaction-anchored (`job_id`), escrow-gated (`jobs.escrow_status = 'funds_released'`). Sub-ratings: Quality · Communication · Cleanliness. Overall `rating` is a Postgres `GENERATED ALWAYS` column (avg of three sub-ratings). `private_feedback` is excluded from `visible_reviews` AND protected by column-level `REVOKE SELECT` on the raw table — admin access via service role only. Claude Haiku summarises each review body into a Pros/Cons list via the `review-sentiment` Edge Function.
 - **Photo analysis auth**: `POST /analyse/photos` requires a valid Supabase JWT (`get_current_user`). The video endpoint `POST /analyse` allows unauthenticated access (public demo).
 - **Video metadata**: extracted locally before uploading to Gemini using `hachoir` (technical metadata) and `mutagen` (embedded MP4 tags). Both fail silently — best-effort only.
+- **Bidding framework**: jobs start as `draft`, homeowner publishes to `open` (visible to all contractors), contractors submit bids (`amount_pence` + `note`), homeowner accepts one bid (job moves to `awarded`, all other bids rejected), then `in_progress → completed`. All bid endpoints require JWT auth; DB writes use service-role client to bypass RLS with Python-level ownership checks.
 
 ## Deploying to Cloud Run (manual)
 
