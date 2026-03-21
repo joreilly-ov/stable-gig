@@ -120,6 +120,58 @@ class UserMetadataResponse(BaseModel):
         return v if v is not None else []
 
 
+# --- Reviews ---
+
+def _rating_range(v: int) -> int:
+    if not 1 <= v <= 5:
+        raise ValueError("Rating must be between 1 and 5")
+    return v
+
+
+class ReviewCreate(BaseModel):
+    job_id: str
+    contractor_id: str
+    overall: int
+    quality: int
+    timeliness: int
+    communication: int
+    value: int
+    tidiness: int
+    comment: str | None = None
+
+    @field_validator("overall", "quality", "timeliness", "communication", "value", "tidiness")
+    @classmethod
+    def rating_range(cls, v: int) -> int:
+        return _rating_range(v)
+
+
+class ReviewResponse(BaseModel):
+    id: str
+    job_id: str
+    contractor_id: str
+    reviewer_id: str
+    overall: int
+    quality: int
+    timeliness: int
+    communication: int
+    value: int
+    tidiness: int
+    comment: str | None
+    reviewer_name: str | None = None
+    created_at: str
+
+
+class ReviewSummary(BaseModel):
+    contractor_id: str
+    review_count: int
+    avg_overall: float
+    avg_quality: float
+    avg_timeliness: float
+    avg_communication: float
+    avg_value: float
+    avg_tidiness: float
+
+
 # --- Address ---
 
 class AddressSuggestion(BaseModel):
