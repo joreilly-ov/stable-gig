@@ -23,15 +23,19 @@ Single-service backend on **Google Cloud Run** with two separate frontends:
 
 | Feature | Detail |
 |---------|--------|
-| **Video analysis** | Upload a video → Gemini 2.0 Flash returns problem type, urgency, materials, clarifying questions, and extracted metadata (GPS, device, resolution) |
-| **Photo analysis** | Upload 1–5 photos → Gemini 1.5 Flash runs Multi-Perspective Triangulation and returns a diagnosis, urgency score (1–10), required tools, and estimated parts |
+| **Video analysis** | Upload a video → Gemini 2.5 Flash returns problem type, urgency, materials, clarifying questions, and extracted metadata (GPS, device, resolution) |
+| **Photo analysis** | Upload 1–5 photos → Gemini 2.5 Flash runs Multi-Perspective Triangulation and returns a diagnosis, urgency score (1–10), required tools, and estimated parts |
+| **RFP generation** | `POST /jobs/{id}/rfp` — Gemini assembles a professional RFP from analysis output + homeowner clarifications; includes scope of work, private cost estimate range (GBP pence), and permit flags |
+| **Contractor matching** | `GET /jobs/{id}/contractors/matches` — ranks contractors by cosine similarity between their profile embedding and the job RFP; falls back to activity-category filter if no embeddings exist |
+| **Profile embeddings** | `POST /me/contractor/embed-profile` — contractors generate a Gemini `text-embedding-004` profile vector (768-dim) so they surface in semantic matching |
 | **Auth** | Email + password, magic-link OTP, and Google OAuth via Supabase |
 | **Rate limiting** | 5–10 req/min per IP on auth endpoints (slowapi) |
 | **Onboarding** | Two-step signup: profile (name, address) + trade interests |
 | **Contractor registration** | Business name, postcode, phone, activity categories, licence/insurance details |
-| **Job lifecycle** | `open → awarded → in_progress → awaiting_review → completed` |
+| **Job lifecycle** | `draft → open → awarded → in_progress → completed \| cancelled` |
+| **Bidding** | Contractors bid on open jobs (`amount_pence` + scope note); homeowner accepts one bid — rejected bids are auto-closed; job moves to `awarded` |
 | **Escrow gate** | `jobs.escrow_status` (`pending → held → funds_released`) unlocks the review flow |
-| **Task breakdown** | `POST /analyse/breakdown` — Claude decomposes a repair description into an ordered task list with titles, difficulty levels, and estimated durations |
+| **Task breakdown** | `POST /analyse/breakdown` — Gemini decomposes a repair description into an ordered task list with titles, difficulty levels, and estimated durations |
 | **Review system** | Double-blind, transaction-anchored mutual reviews with 14-day fallback reveal |
 | **Categorical ratings** | Quality · Communication · Cleanliness (1–5 each); overall rating auto-generated |
 | **Private feedback** | Admin-only field on every review — never exposed to the tradesman |
