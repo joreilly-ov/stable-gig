@@ -16,5 +16,10 @@ class Settings(BaseSettings):
     smarty_auth_id: str = ""
     smarty_auth_token: str = ""
 
+    # Stripe payment provider (optional — 503 returned if not set)
+    stripe_secret_key:      str = ""   # sk_live_… / sk_test_…
+    stripe_publishable_key: str = ""   # pk_live_… / pk_test_… (safe to expose to frontend)
+    stripe_webhook_secret:  str = ""   # whsec_… from Stripe Dashboard → Webhooks
+
 
 settings = Settings()

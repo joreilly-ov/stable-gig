@@ -42,6 +42,9 @@ _stub("google.generativeai.types")
 _supabase_mock = _stub("supabase")
 _supabase_mock.create_client.return_value = MagicMock()
 
+# stripe — payment provider SDK (not available in the test sandbox)
+_stub("stripe")
+
 # main.py — auth.py does `from main import limiter` at module level.
 # Stubbing it here (before any test module is imported) prevents the
 # circular import: test → app.routers.auth → main → app.routers.auth.
