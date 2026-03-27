@@ -10,8 +10,11 @@ Entirely separate from the /analyse (video) pipeline.
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
+
+# [SECURITY: code-review] Shared rate limiter — same instance as auth endpoints.
+from main import limiter
 
 from app.dependencies import get_current_user
 from app.services import photo_analyzer
@@ -118,7 +121,11 @@ class PhotoAnalysisResponse(BaseModel):
         "for token efficiency, and returns a structured Gemini 2.5 Flash diagnosis."
     ),
 )
+# [SECURITY: code-review] 20 req/min per IP caps Gemini cost from any single
+# authenticated user; auth already blocks unauthenticated callers above this.
+@limiter.limit("20/minute")
 async def analyse_photos(
+    request: Request,
     body: PhotoAnalysisRequest,
     user=Depends(get_current_user),
 ):
