@@ -9,7 +9,10 @@ import logging
 import os
 import tempfile
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+
+# [SECURITY: code-review] Shared rate limiter — same instance used by auth endpoints.
+from main import limiter
 
 from app.dependencies import get_optional_user
 from app.services import gemini, video_meta as vm
@@ -49,7 +52,11 @@ def _assert_video_magic(header: bytes) -> None:
 
 
 @router.post("/analyse")
+# [SECURITY: code-review] 5 req/min per IP limits Gemini quota burn from the
+# intentionally-unauthenticated public demo endpoint.
+@limiter.limit("5/minute")
 async def analyse_video(
+    request: Request,
     file: UploadFile = File(...),
     browser_lat: float | None = Form(default=None),
     browser_lon: float | None = Form(default=None),
