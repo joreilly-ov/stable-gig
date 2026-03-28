@@ -89,11 +89,12 @@ def _get_milestone_or_404(milestone_id: str, job_id: str) -> dict:
 
 
 def _get_contractor_id_or_none(user_id: str) -> str | None:
+    # Under Clean Split, contractors.id = auth.users.id — no user_id column.
     res = (
         _db()
         .table("contractors")
         .select("id")
-        .eq("user_id", user_id)
+        .eq("id", user_id)
         .limit(1)
         .execute()
     )

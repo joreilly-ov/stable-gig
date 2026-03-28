@@ -86,7 +86,8 @@ def _get_job_or_404(job_id: str) -> dict:
 
 
 def _is_contractor(user_id: str) -> bool:
-    res = _db().table("contractors").select("id").eq("user_id", user_id).limit(1).execute()
+    # Under Clean Split, contractors.id = auth.users.id — no user_id column exists.
+    res = _db().table("contractors").select("id").eq("id", user_id).limit(1).execute()
     return bool(res.data)
 
 

@@ -69,12 +69,15 @@ def _get_job_or_404(job_id: str) -> dict:
 
 
 def _get_contractor_id_or_403(user_id: str) -> str:
-    """Return contractors.id for the user or raise 403."""
+    """Return contractors.id for the user or raise 403.
+
+    Under Clean Split, contractors.id = auth.users.id — there is no user_id column.
+    """
     res = (
         _db()
         .table("contractors")
         .select("id")
-        .eq("user_id", user_id)
+        .eq("id", user_id)
         .limit(1)
         .execute()
     )
@@ -183,7 +186,7 @@ async def list_questions(job_id: str, user=Depends(get_current_user)):
         _db()
         .table("contractors")
         .select("id")
-        .eq("user_id", user_id)
+        .eq("id", user_id)
         .limit(1)
         .execute()
     )
