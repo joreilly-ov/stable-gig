@@ -57,8 +57,11 @@ def _db():
 
 
 def _get_contractor_or_403(user_id: str) -> dict:
-    """Return contractor row for the user or raise 403."""
-    res = _db().table("contractors").select("id").eq("user_id", user_id).limit(1).execute()
+    """Return contractor row for the user or raise 403.
+
+    Under Clean Split, contractors.id = auth.users.id — there is no user_id column.
+    """
+    res = _db().table("contractors").select("id").eq("id", user_id).limit(1).execute()
     if not res.data:
         raise HTTPException(status_code=403, detail="Only registered contractors may place bids")
     return res.data[0]
@@ -157,7 +160,7 @@ async def list_bids(job_id: str, user=Depends(get_current_user)):
         return res.data
 
     # Contractor: only their own bid
-    contractor_res = _db().table("contractors").select("id").eq("user_id", user_id).limit(1).execute()
+    contractor_res = _db().table("contractors").select("id").eq("id", user_id).limit(1).execute()
     if not contractor_res.data:
         raise HTTPException(status_code=403, detail="Not authorised to view bids on this job")
 
@@ -242,7 +245,7 @@ async def action_bid(
 async def my_bids(user=Depends(get_current_user)):
     """Contractor sees all their bids across all jobs, newest first."""
     user_id = str(user.id)
-    contractor_res = _db().table("contractors").select("id").eq("user_id", user_id).limit(1).execute()
+    contractor_res = _db().table("contractors").select("id").eq("id", user_id).limit(1).execute()
     if not contractor_res.data:
         raise HTTPException(status_code=403, detail="Only registered contractors can view their bids")
 
