@@ -198,6 +198,30 @@ pytest -v    # verbose
 
 ---
 
+## Generated docs (code-first)
+
+To generate user-facing documentation from the **actual code and tests** (instead of handwritten notes), run:
+
+```bash
+# from repo root
+pwsh ./scripts/generate_docs.ps1 -SkipJunit
+```
+
+This writes canonical, code-derived docs into `docs/generated/`:
+
+- `openapi.json` — produced from the FastAPI app object
+- `feature-matrix.md` — endpoint-to-test mapping from router table + test call sites
+- `test-inventory.txt` — discovered pytest test files and counts
+
+Optional outputs:
+
+- `api.html` (ReDoc) — generated when `npx` is installed and `-SkipHtml` is not set
+- `tests-junit.xml` — generated unless `-SkipJunit` is set
+
+CI enforces freshness via `.github/workflows/docs-from-code.yml` by regenerating docs and failing if `docs/generated/` differs from committed files.
+
+---
+
 ## API reference
 
 ### `POST /analyse` — video

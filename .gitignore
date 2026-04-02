@@ -18,3 +18,7 @@ build/
 .idea/
 .vscode/
 *.swp
+
+# Generated docs (optional/local artifacts)
+docs/generated/api.html
+docs/generated/tests-junit.xml
