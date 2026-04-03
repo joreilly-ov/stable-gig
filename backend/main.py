@@ -51,6 +51,7 @@ def _configure_logging() -> None:
 
 
 _configure_logging()
+log = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Home Repair Video Analyser",
