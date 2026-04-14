@@ -113,13 +113,16 @@ def setup_contractors(client: Client) -> dict[str, str]:
         client.table("profiles").update({"full_name": full_name}).eq("id", user_id).execute()
 
         # Create contractor record (contractor_details auto-created by trigger)
+        # activities is a TEXT[] column — pass as a PostgreSQL array literal
+        # to avoid PostgREST schema cache issues with array types.
+        activities_literal = "{" + ",".join(activities) + "}"
         try:
             client.table("contractors").insert({
                 "id": user_id,
                 "business_name": business_name,
                 "postcode": postcode,
                 "phone": phone,
-                "activities": activities,
+                "activities": activities_literal,
             }).execute()
             print(f"    → Created contractor: {business_name}")
         except Exception as e:
