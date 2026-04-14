@@ -18,7 +18,7 @@ The script is idempotent — running it again will skip existing users.
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 try:
     from supabase import create_client, Client
@@ -322,13 +322,10 @@ def setup_completed_jobs_with_reviews(
         },
     ]
 
-    past_date = (datetime.now() - timedelta(days=30)).isoformat()
-
     for job_data in jobs_data:
         owner_id      = homeowners[job_data["owner"]]
         contractor    = contractors[job_data["contractor"]]
         contractor_id = contractor["contractor_id"]
-        contractor_auth_id = contractor["auth_id"]  # for reviews (references auth.users)
 
         job_resp = client.table("jobs").insert({
             "user_id":       owner_id,
@@ -352,34 +349,15 @@ def setup_completed_jobs_with_reviews(
             "status":        "accepted",
         }).execute()
 
-        # Client → Contractor review
-        client.table("reviews").insert({
-            "job_id":               job_id,
-            "reviewer_id":          owner_id,
-            "reviewee_id":          contractor_auth_id,
-            "reviewer_role":        "client",
-            "reviewee_role":        "contractor",
-            "rating_cleanliness":   job_data["client_rating"][0],
-            "rating_communication": job_data["client_rating"][1],
-            "rating_quality":       job_data["client_rating"][2],
-            "body":                 job_data["client_review"],
-            "content_visible":      True,
-            "reveal_at":            past_date,
-        }).execute()
-
-        # Contractor → Client review
-        client.table("reviews").insert({
-            "job_id":               job_id,
-            "reviewer_id":          contractor_auth_id,
-            "reviewee_id":          owner_id,
-            "reviewer_role":        "contractor",
-            "reviewee_role":        "client",
-            "rating_cleanliness":   job_data["contractor_rating"][0],
-            "rating_communication": job_data["contractor_rating"][1],
-            "rating_quality":       job_data["contractor_rating"][2],
-            "body":                 job_data["contractor_review"],
-            "content_visible":      True,
-            "reveal_at":            past_date,
+        # Client → Contractor review (via RPC to bypass schema cache issues)
+        client.rpc("seed_insert_review", {
+            "p_contractor_id":        contractor_id,
+            "p_job_id":               str(job_id),
+            "p_reviewer_id":          owner_id,
+            "p_rating_quality":       job_data["client_rating"][2],
+            "p_rating_communication": job_data["client_rating"][1],
+            "p_rating_cleanliness":   job_data["client_rating"][0],
+            "p_comment":              job_data["client_review"],
         }).execute()
 
 
