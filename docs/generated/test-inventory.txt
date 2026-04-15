@@ -1,4 +1,4 @@
-﻿tests/test_address_router.py: 12
+tests/test_address_router.py: 12
 tests/test_analyse_router.py: 25
 tests/test_auth_router.py: 22
 tests/test_config.py: 5
