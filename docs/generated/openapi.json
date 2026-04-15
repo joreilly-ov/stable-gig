@@ -644,7 +644,7 @@
           "reviews"
         ],
         "summary": "Submit Review",
-        "description": "Submit a review for the other party on a completed job.\n\nprivate_feedback is accepted in the payload (the TradesmanRating component\nsends it) and written to the DB, but is never returned in any response.",
+        "description": "Submit a review for a contractor on a completed job.",
         "operationId": "submit_review_reviews_post",
         "requestBody": {
           "content": {
@@ -689,7 +689,7 @@
           "reviews"
         ],
         "summary": "List Contractor Reviews",
-        "description": "Return visible reviews for a contractor, newest first.\n\nReads from visible_reviews \u2014 the double-blind view that:\n  \u2022 hides body / ai_pros_cons until both parties have reviewed\n  \u2022 never exposes private_feedback\nRequires auth to prevent bulk-scraping of review content.",
+        "description": "Return all reviews for a contractor, newest first.",
         "operationId": "list_contractor_reviews_reviews_contractor__contractor_id__get",
         "security": [
           {
@@ -735,7 +735,7 @@
           "reviews"
         ],
         "summary": "Delete Review",
-        "description": "Soft-delete a review (only the reviewer who submitted it can delete).\n\nThe review row is marked with deleted_at + deleted_by_user_id, but remains in\nthe database for audit / dispute resolution. RLS policies automatically exclude\nsoft-deleted rows from user-facing queries.",
+        "description": "Soft-delete a review (reviewer only).",
         "operationId": "delete_review_reviews__review_id__delete",
         "security": [
           {
@@ -781,7 +781,7 @@
           "reviews"
         ],
         "summary": "Contractor Review Summary",
-        "description": "Return aggregated rating averages for a contractor (public, no auth).\n\nOnly counts reviews that are visible (double-blind lifted or timer expired).\nUses correct current column names: rating_cleanliness, rating_communication,\nrating_quality, rating (generated average).",
+        "description": "Return aggregated rating averages for a contractor (public, no auth).",
         "operationId": "contractor_review_summary_reviews_summary__contractor_id__get",
         "parameters": [
           {
@@ -1802,7 +1802,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File"
           },
           "browser_lat": {
@@ -2463,19 +2463,10 @@
             "type": "string",
             "title": "Job Id"
           },
-          "reviewee_id": {
+          "contractor_id": {
             "type": "string",
-            "title": "Reviewee Id"
-          },
-          "reviewee_role": {
-            "type": "string",
-            "title": "Reviewee Role",
-            "description": "'contractor' or 'client'"
-          },
-          "reviewer_role": {
-            "type": "string",
-            "title": "Reviewer Role",
-            "description": "'client' or 'contractor'"
+            "title": "Contractor Id",
+            "description": "UUID of the contractor being reviewed"
           },
           "rating_cleanliness": {
             "type": "integer",
@@ -2495,7 +2486,7 @@
             "minimum": 1.0,
             "title": "Rating Quality"
           },
-          "body": {
+          "comment": {
             "anyOf": [
               {
                 "type": "string",
@@ -2505,7 +2496,7 @@
                 "type": "null"
               }
             ],
-            "title": "Body"
+            "title": "Comment"
           },
           "private_feedback": {
             "anyOf": [
@@ -2518,15 +2509,13 @@
               }
             ],
             "title": "Private Feedback",
-            "description": "Admin-only. Written to the DB but never returned to callers."
+            "description": "Admin-only. Written to DB but never returned to callers."
           }
         },
         "type": "object",
         "required": [
           "job_id",
-          "reviewee_id",
-          "reviewee_role",
-          "reviewer_role",
+          "contractor_id",
           "rating_cleanliness",
           "rating_communication",
           "rating_quality"
@@ -2711,6 +2700,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",

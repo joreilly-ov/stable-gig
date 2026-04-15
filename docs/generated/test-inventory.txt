@@ -3,10 +3,12 @@ tests/test_analyse_router.py: 25
 tests/test_auth_router.py: 22
 tests/test_config.py: 5
 tests/test_contractor_connect_router.py: 17
+tests/test_contractor_matcher_service.py: 25
 tests/test_contractor_matching_router.py: 16
 tests/test_database.py: 9
 tests/test_dependencies.py: 8
 tests/test_escrow_router.py: 26
+tests/test_escrow_service.py: 35
 tests/test_gemini_service.py: 13
 tests/test_jobs_bids_router.py: 30
 tests/test_main.py: 7
@@ -18,6 +20,7 @@ tests/test_profiles_router.py: 8
 tests/test_push_service.py: 9
 tests/test_questions_router.py: 13
 tests/test_reviews_router.py: 14
+tests/test_rfp_generator_service.py: 27
 tests/test_rfp_router.py: 11
 tests/test_schemas.py: 41
 tests/test_task_breakdown.py: 18
