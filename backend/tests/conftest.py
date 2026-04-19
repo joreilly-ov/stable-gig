@@ -34,7 +34,10 @@ def _stub(name: str) -> MagicMock:
     sys.modules[name] = mock
     return mock
 
-# google-generativeai and its dependency chain
+# google-generativeai and its dependency chain.
+# `google` (the namespace package) must be stubbed first so that
+# `import google.generativeai as genai` doesn't try to resolve the real package.
+_stub("google")
 _stub("google.generativeai")
 _stub("google.generativeai.types")
 
