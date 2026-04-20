@@ -1,12 +1,14 @@
-﻿tests/test_address_router.py: 12
+tests/test_address_router.py: 12
 tests/test_analyse_router.py: 25
 tests/test_auth_router.py: 22
 tests/test_config.py: 5
 tests/test_contractor_connect_router.py: 17
+tests/test_contractor_documents_router.py: 17
 tests/test_contractor_matcher_service.py: 25
 tests/test_contractor_matching_router.py: 16
 tests/test_database.py: 9
 tests/test_dependencies.py: 8
+tests/test_document_verifier_service.py: 20
 tests/test_escrow_router.py: 26
 tests/test_escrow_service.py: 35
 tests/test_gemini_service.py: 13

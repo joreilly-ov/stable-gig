@@ -1761,6 +1761,156 @@
           }
         }
       }
+    },
+    "/contractors/me/documents": {
+      "get": {
+        "tags": [
+          "contractor-documents"
+        ],
+        "summary": "List Own Documents",
+        "description": "List all documents uploaded by the authenticated contractor (all statuses).",
+        "operationId": "list_own_documents_contractors_me_documents_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "contractor-documents"
+        ],
+        "summary": "Upload Document",
+        "description": "Upload an official document. AI field extraction runs immediately.\n\nOn success the record is returned with status 'verified' (all required\nfields extracted) or 'needs_review' (poor scan / wrong document type).",
+        "operationId": "upload_document_contractors_me_documents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/contractors/{contractor_id}/documents": {
+      "get": {
+        "tags": [
+          "contractor-documents"
+        ],
+        "summary": "List Contractor Documents",
+        "description": "List verified, non-expired documents for a contractor (public endpoint).\n\nfile_source is excluded to avoid returning raw document bytes to third parties.",
+        "operationId": "list_contractor_documents_contractors__contractor_id__documents_get",
+        "parameters": [
+          {
+            "name": "contractor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Contractor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contractors/me/documents/{doc_id}": {
+      "delete": {
+        "tags": [
+          "contractor-documents"
+        ],
+        "summary": "Delete Document",
+        "description": "Soft-delete a document. The record is retained for audit purposes.",
+        "operationId": "delete_document_contractors_me_documents__doc_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1853,6 +2003,33 @@
           "refresh_url"
         ],
         "title": "ConnectOnboardRequest"
+      },
+      "DocumentUpload": {
+        "properties": {
+          "document_type": {
+            "type": "string",
+            "title": "Document Type",
+            "description": "One of: insurance, licence, certification, other"
+          },
+          "file_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "File Name"
+          },
+          "file_source": {
+            "type": "string",
+            "title": "File Source",
+            "description": "HTTPS URL or base64 data URI of the document image or scan."
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_type",
+          "file_name",
+          "file_source"
+        ],
+        "title": "DocumentUpload"
       },
       "HTTPValidationError": {
         "properties": {

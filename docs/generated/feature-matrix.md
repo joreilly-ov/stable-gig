@@ -16,6 +16,10 @@ Source of truth: FastAPI router table plus discovered pytest call sites.
 | POST | `/auth/reset-password` | `reset_password` | test_auth_router.py |
 | POST | `/auth/verify` | `verify_otp` | test_auth_router.py |
 | GET | `/config/feature-flags` | `feature_flags` | (none found) |
+| GET | `/contractors/me/documents` | `list_own_documents` | test_contractor_documents_router.py |
+| POST | `/contractors/me/documents` | `upload_document` | test_contractor_documents_router.py |
+| DELETE | `/contractors/me/documents/{doc_id}` | `delete_document` | (none found) |
+| GET | `/contractors/{contractor_id}/documents` | `list_contractor_documents` | (none found) |
 | GET | `/escrow/config` | `escrow_config` | test_escrow_router.py |
 | GET | `/jobs/{job_id}/contractors/matches` | `match_contractors_for_job` | (none found) |
 | GET | `/jobs/{job_id}/escrow` | `get_escrow_status` | (none found) |

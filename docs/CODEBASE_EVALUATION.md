@@ -9,7 +9,7 @@
 
 **stable-gig** is a well-structured FastAPI marketplace with thoughtful architecture decisions:
 - ✅ **Strong transactional & auth patterns** (Supabase RLS, JWT + slowapi rate limiting, Clean Split identity)
-- ✅ **Comprehensive test coverage** (150+ tests, all external deps mocked, conftest setup solid)
+- ✅ **Comprehensive test coverage** (447 tests across 29 files, all external deps mocked, conftest setup solid)
 - ✅ **Careful data privacy** (double-blind reviews, column-level REVOKE on private_feedback, anonymous Q&A)
 - ⚠️ **3 operational/security hot-spots** requiring immediate attention
 - 🔍 **2 code-quality debt areas** worth planning
@@ -119,75 +119,28 @@ class ReviewCreate(BaseModel):
 
 ---
 
-### 3. SILENT FAILURE ON OPTIONAL SERVICES [OPERATIONAL VISIBILITY]
+### 3. ~~SILENT FAILURE ON OPTIONAL SERVICES~~ ✅ RESOLVED [OPERATIONAL VISIBILITY]
 **Files:**
-- `backend/app/services/push_service.py` (lines 92–102)
-- `backend/app/config.py` (lines 20–24)
+- `backend/app/services/push_service.py`
+- `backend/main.py` (startup event + `/config/feature-flags`)
 
-**Severity:** HIGH  
-**Risk:** If VAPID is misconfigured in production, contractors never receive job notifications—but no alert surfaces
+**Severity:** HIGH (was)  
+**Risk (was):** If VAPID is misconfigured in production, contractors never receive job notifications—but no alert surfaces
 
-**Current Code:**
-```python
-# push_service.py line 95-102
-_MISSING_VAPID_WARNED = False  # warn once per process start
-
-if not _vapid_configured():
-    if not _MISSING_VAPID_WARNED:
-        log.warning("push_vapid_not_configured", ...)
-        _MISSING_VAPID_WARNED = True
-    return  # ← Silent exit, caller never knows
-```
-
-**Impact:**
-- Feature appears to work locally but silently fails in Cloud Run
-- One-time warning in logs is easy to miss during onboarding
-- No user-facing indication that notifications are disabled
-- Contractors miss job opportunities due to silent infrastructure issue
-
-**Recommendation:**
-Add a startup check that fails fast with visibility:
-```python
-# In main.py
-
-@app.on_event("startup")
-async def startup():
-    from app.services.push_service import _vapid_configured
-    if not _vapid_configured():
-        log.error(
-            "CRITICAL: VAPID not configured. Push notifications disabled. "
-            "Set VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_CLAIMS_EMAIL in environment."
-        )
-        # Optionally add to a startup health check that monitoring can alert on
-```
-
-Also expose feature flags via a dedicated endpoint:
-```python
-@app.get("/config/feature-flags")
-async def feature_flags():
-    from app.services.push_service import _vapid_configured
-    return {
-        "push_notifications_enabled": _vapid_configured(),
-        "stripe_enabled": bool(settings.stripe_secret_key),
-    }
-```
-
-Frontend can then disable the "notify contractors" button if `push_notifications_enabled` is `false`.
-
-**Effort:** 10 minutes  
-**Impact:** Prevents silent push failure in production; enables frontend to gracefully degrade
+**Resolved:** Both mitigations are now implemented in `main.py`:
+- **Startup CRITICAL log** fires if VAPID keys are absent, making production misconfiguration immediately visible in Cloud Run logs.
+- **`GET /config/feature-flags`** returns `{"push_notifications_enabled": bool, "stripe_enabled": bool}` so frontends can gracefully degrade when push is off.
 
 ---
 
 ## ⚠️ Medium-Priority Issues
 
-### 4. NO PERMANENT RECORD OF DELETED REVIEWS / BIDS [AUDIT TRAIL]
+### 4. ~~NO PERMANENT RECORD OF DELETED REVIEWS / BIDS~~ ✅ RESOLVED [AUDIT TRAIL]
 **Files:** 
-- `backend/app/routers/reviews.py` – no `DELETE` endpoint defined
-- `backend/app/routers/bids.py` – no `DELETE` endpoint defined
+- `backend/app/routers/reviews.py` – `DELETE /reviews/{id}` implemented (soft-delete)
+- `backend/app/routers/bids.py` – `DELETE /jobs/{id}/bids/{bid_id}` implemented (soft-delete)
 
-**Severity:** MEDIUM  
-**Risk:** If a user deletes a review or bid (via direct Supabase/SQL), no audit log exists. Disputes cannot be resolved with "what was the original review?"
+**Resolved:** Both routers now have soft-delete endpoints. The `bids` and `reviews` tables have `deleted_at TIMESTAMPTZ` and `deleted_by_user_id UUID` columns. Only the original submitter can soft-delete; bids in `accepted` or `rejected` state are immutable. Rows are retained for dispute resolution.
 
 **Impact:**
 - Admin cannot investigate disputes without DB backups
@@ -320,7 +273,7 @@ def _get_contractor_or_403(user_id: str) -> dict:
 - **One-bid-per-contractor**: UNIQUE constraint prevents duplicate bids on same job
 
 ### ✅ Solid Test Foundation
-- **150+ tests** with comprehensive mocking (all external APIs stubbed in `conftest.py`)
+- **447 tests** across 29 files with comprehensive mocking (all external APIs stubbed in `conftest.py`)
 - **Pre-population strategy**: `sys.modules` pre-populated to prevent import failures
 - **Error-case coverage**: Tests cover 201/400/403/404/409/422 scenarios
 - **No real I/O**: Test suite requires only Supabase credentials (all mocked), no API keys for Gemini/Stripe
@@ -455,11 +408,14 @@ async def list_job_questions(
 | Photo analyzer service | 32 | Sharpness, preprocessing, resize logic | Edge cases on malformed EXIF |
 | Photo analysis router | 30 | Request validation, error→HTTP mapping | Video-specific tests (separate `analyse.py`) |
 | Jobs + bids router | 30 | Full lifecycle, status transitions, auth guards | Concurrent bid acceptance (race condition detection) |
-| Reviews router | 17 | Double-blind, private_feedback stripping, list/summary | AI summary Edge Function integration |
+| Reviews router | 14 | private_feedback stripping, list/summary, duplicate detection | Soft-delete endpoint coverage |
 | Questions router | 13 | Anonymization, owner answers, auth | Pagination boundaries |
 | Notifications router | 8 | VAPID config check, subscribe/unsubscribe | Real push delivery simulation |
-| Push service | 8 | Dead-subscription cleanup, no-contractors skip | Circuit breaker behavior |
-| **TOTAL** | **~150** | **Moderate-High** | **See gaps above** |
+| Push service | 9 | Dead-subscription cleanup, no-contractors skip | Circuit breaker behavior |
+| Contractor matcher service | 25 | Profile embedding, semantic ranking, expertise fallback | Multi-contractor ranking order |
+| Escrow service | 35 | Payment intent, held, transfer, refund | Stripe webhook handling |
+| RFP generator service | 27 | Prompt building, cost validation, Gemini call shape | Multi-photo evidence attachment |
+| **TOTAL** | **447** | **High** | **See gaps above** |
 
 ---
 
@@ -467,14 +423,14 @@ async def list_job_questions(
 
 | Priority | Issue | Action | Effort | Impact | Status |
 |----------|-------|--------|--------|--------|--------|
-| **URGENT** | CORS wildcard | Whitelist known origins | 5 min | Blocks cross-origin brute-force | — |
-| **URGENT** | VAPID silent fail | Add startup health check + feature flags | 10 min | Prevents prod notifications blackhole | — |
-| **HIGH** | Input validation | Add Pydantic validators to `JobCreate` + `ReviewCreate` | 15 min | Blocks stored XSS | — |
-| **HIGH** | Audit trail | Implement soft-delete for reviews/bids | 30 min | Enables dispute resolution | — |
-| **MEDIUM** | Identity fragility | Add DB constraints + trigger for Clean Split | 20 min | Enforces invariant | — |
-| **MEDIUM** | Frontend sync | Add pre-commit / CI check for index.html + components | 10 min | Prevents deploy divergence | — |
-| **MEDIUM** | Pagination | Add `page` / `page_size` to list endpoints | 20 min each | Prevents memory bloat | — |
-| **LOW** | API resilience | Add exponential backoff retry for Gemini | 40 min | Handles transient failures | — |
+| **URGENT** | CORS wildcard | Whitelist known origins | 5 min | Blocks cross-origin brute-force | Open |
+| **URGENT** | VAPID silent fail | Add startup health check + feature flags | 10 min | Prevents prod notifications blackhole | ✅ Done |
+| **HIGH** | Input validation | Add Pydantic validators to `JobCreate` + `ReviewCreate` | 15 min | Blocks stored XSS | Open |
+| **HIGH** | Audit trail | Implement soft-delete for reviews/bids | 30 min | Enables dispute resolution | ✅ Done |
+| **MEDIUM** | Identity fragility | Add DB constraints + trigger for Clean Split | 20 min | Enforces invariant | Open |
+| **MEDIUM** | Frontend sync | Add pre-commit / CI check for index.html + components | 10 min | Prevents deploy divergence | Open |
+| **MEDIUM** | Pagination | Add `page` / `page_size` to list endpoints | 20 min each | Prevents memory bloat | Open |
+| **LOW** | API resilience | Add exponential backoff retry for Gemini | 40 min | Handles transient failures | Open |
 
 ---
 

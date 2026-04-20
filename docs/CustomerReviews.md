@@ -10,17 +10,35 @@ Reviews capture **three categorical dimensions** (Quality, Communication, Cleanl
 
 ---
 
+## Live implementation vs. designed system
+
+> **Important:** the live database was set up manually before the migration files were applied.
+> The `reviews.py` API layer reflects the **actual live schema**, which is a simplified version
+> of the full double-blind design described later in this document.
+>
+> | Aspect | Live schema (what code uses) | Designed schema (migrations 005–008) |
+> |--------|------------------------------|---------------------------------------|
+> | Reviewer identity | `reviewer_id` | `reviewer_id` + `reviewer_role` |
+> | Reviewee identity | `contractor_id` | `reviewee_id` + `reviewee_role` |
+> | Free text | `comment` | `body` |
+> | Overall score | `overall` (generated) | `rating` (generated) |
+> | Double-blind | Not in live API layer | `content_visible`, `reveal_at`, trigger |
+> | AI enrichment | `ai_pros_cons` (via Edge Function) | Same |
+> | Soft-delete | `deleted_at`, `deleted_by_user_id` | Not in original design |
+>
+> The rest of this document describes both layers; sections marked **[Live]** reflect the
+> deployed API; sections marked **[Designed]** describe the full aspirational system.
+
 ## Core design principles
 
 | Principle | How it is enforced |
 |---|---|
 | **Transaction-anchored** | Every review references a `job_id`. No job = no review. |
 | **Escrow-gated** | `ReviewMediator` component only renders when `jobs.escrow_status = 'funds_released'`. |
-| **One review per party per job** | `UNIQUE (job_id, reviewer_id)` database constraint. |
-| **Double-blind** | `content_visible = FALSE` by default; trigger reveals both reviews simultaneously when the second is submitted. |
-| **Immutable** | No `UPDATE` or `DELETE` RLS policies — reviews cannot be edited after submission. |
-| **Bidirectional** | Client rates contractor; contractor rates client. Both ratings live in the same `reviews` table. |
-| **AI-enriched** | Claude (Haiku) extracts Pros/Cons from the free-text body via the `review-sentiment` Edge Function. |
+| **One review per reviewer per job** | `UNIQUE (job_id, reviewer_id)` database constraint. |
+| **Double-blind** [Designed] | `content_visible = FALSE` by default; trigger reveals both reviews simultaneously when the second is submitted. Not active in the current live API layer. |
+| **Soft-delete audit trail** [Live] | `DELETE /reviews/{id}` stamps `deleted_at` + `deleted_by_user_id` instead of removing the row; deleted rows remain for dispute resolution. |
+| **AI-enriched** | Claude (Haiku) extracts Pros/Cons from the free-text via the `review-sentiment` Edge Function. |
 
 ---
 
@@ -80,6 +98,36 @@ pending → held → funds_released | refunded
 ---
 
 ## The `reviews` table
+
+### Live schema [Live]
+
+```sql
+reviews (
+    id                   UUID        PRIMARY KEY
+    job_id               TEXT        → jobs.id (stored as TEXT in live DB)
+    contractor_id        UUID        → contractors.id   -- who is being reviewed
+    reviewer_id          UUID        → auth.users.id    -- who wrote this review
+
+    -- Categorical sub-ratings (all required, 1–5)
+    rating_quality       SMALLINT    1–5
+    rating_communication SMALLINT    1–5
+    rating_cleanliness   SMALLINT    1–5
+
+    -- Generated overall (read-only)
+    overall              NUMERIC(3,2) GENERATED ALWAYS AS avg(sub-ratings)
+
+    comment              TEXT        free-text review body
+    ai_pros_cons         JSONB       { pros, cons, one_line_summary } — filled async
+    private_feedback     TEXT        admin-only — excluded from API responses
+    created_at           TIMESTAMPTZ
+
+    -- Soft-delete audit trail
+    deleted_at           TIMESTAMPTZ NULL
+    deleted_by_user_id   UUID        NULL
+)
+```
+
+### Designed schema (migrations 005–008) [Designed]
 
 ```sql
 reviews (
@@ -370,13 +418,15 @@ const { data } = await adminSupabase
 
 ## Row Level Security
 
+> **Live DB note:** The policies below are for the designed schema (migration 016). The live DB uses the service-role client in `reviews.py` to bypass RLS for all writes, with Python-level ownership checks (`reviewer_id = auth.uid()`).
+
 | Policy | Who | What |
 |---|---|---|
 | `reviews: insert own` | Authenticated | Can insert only if `reviewer_id = auth.uid()` |
 | `reviews: select own submission` | Reviewer | Can always read their own review (before and after reveal); `USING (auth.uid() = reviewer_id)` |
-| `reviews: select revealed about me` | Reviewee | Can read reviews about them only after `content_visible = TRUE` or `reveal_at <= NOW()`; `USING (auth.uid() = reviewee_id AND (content_visible OR reveal_at <= NOW()))` |
+| `reviews: select revealed about me` [Designed] | Reviewee | Can read reviews about them only after `content_visible = TRUE` or `reveal_at <= NOW()`; `USING (auth.uid() = reviewee_id AND (content_visible OR reveal_at <= NOW()))` |
 | *(no UPDATE policy)* | — | Reviews cannot be edited after submission |
-| *(no DELETE policy)* | — | Reviews cannot be deleted by users |
+| `DELETE /reviews/{id}` (soft-delete) [Live] | Reviewer | Stamps `deleted_at` + `deleted_by_user_id`; row retained for audit; Python checks `reviewer_id = auth.uid()` before allowing |
 
 > **Migration 016** hardened this by dropping any auto-generated `USING (true)` policies that Supabase's dashboard may have created. Both correct SELECT policies are recreated in a clean state and the column-level `REVOKE SELECT (private_feedback)` is re-asserted to remain effective even if a future dashboard action adds a broad table-level grant.
 
@@ -440,36 +490,26 @@ SELECT EXISTS (
 );
 ```
 
-### 3. Insert the review (via ReviewMediator or directly)
+### 3. Insert the review — live schema [Live]
+
+Use `POST /reviews` (requires JWT) or insert directly using the live column names:
 
 ```sql
--- Client reviewing the contractor
+-- Client reviewing the contractor (live schema)
 INSERT INTO reviews (
-    job_id, reviewer_id, reviewee_id,
-    reviewer_role, reviewee_role,
+    job_id, contractor_id, reviewer_id,
     rating_quality, rating_communication, rating_cleanliness,
-    body,
-    private_feedback      -- optional; admin-only, never shown to tradesman
+    comment,
+    private_feedback      -- optional; admin-only, never returned by the API
 ) VALUES (
-    $job_id, $client_id, $contractor_id,
-    'client', 'contractor',
+    $job_id, $contractor_id, $client_id,
     5, 4, 5,
     'Excellent work, arrived on time and left the site clean.',
     NULL
 );
+```
 
--- Contractor reviewing the client
-INSERT INTO reviews (
-    job_id, reviewer_id, reviewee_id,
-    reviewer_role, reviewee_role,
-    rating_quality, rating_communication, rating_cleanliness,
-    body
-) VALUES (
-    $job_id, $contractor_id, $client_id,
-    'contractor', 'client',
-    4, 5, 4,
-    'Clear brief, paid promptly, easy to work with.'
-);
+> **Designed schema** (migrations 005–008) uses `reviewee_id`, `reviewer_role`, `reviewee_role`, and `body` instead. If applying migrations to a fresh DB, use the designed schema fields; if writing against the live DB, use the live schema fields above.
 ```
 
 The `on_review_submitted` trigger fires automatically. If this is the second review, both are revealed and the job advances to `completed`.
