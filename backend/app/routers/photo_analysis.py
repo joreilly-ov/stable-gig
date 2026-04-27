@@ -18,11 +18,10 @@ from main import limiter
 
 from app.dependencies import get_current_user
 from app.services import photo_analyzer
+from app.services.vertical_config import get_vertical_config
 
 router = APIRouter(tags=["photo_analysis"])
 log    = logging.getLogger(__name__)
-
-_VALID_CATEGORIES = {"plumbing", "electrical", "structural", "damp", "roofing", "general"}
 
 
 # ---------------------------------------------------------------------------
@@ -48,18 +47,18 @@ class PhotoAnalysisRequest(BaseModel):
     )
     trade_category: str | None = Field(
         default=None,
-        description=(
-            f"Optional trade hint. Must be one of: {sorted(_VALID_CATEGORIES)}. "
-            "Omit if unknown."
-        ),
+        description="Optional category hint. Omit if unknown.",
     )
 
     @field_validator("trade_category")
     @classmethod
     def _validate_category(cls, v: str | None) -> str | None:
-        if v is not None and v not in _VALID_CATEGORIES:
+        if v is None:
+            return v
+        valid = get_vertical_config()["photo_categories"]
+        if v not in valid:
             raise ValueError(
-                f"trade_category must be one of {sorted(_VALID_CATEGORIES)}"
+                f"trade_category must be one of {sorted(valid)}"
             )
         return v
 
@@ -114,11 +113,11 @@ class PhotoAnalysisResponse(BaseModel):
 @router.post(
     "/analyse/photos",
     response_model=PhotoAnalysisResponse,
-    summary="Analyse trade issue from photos",
+    summary="Analyse issue from photos",
     description=(
-        "Submit 1–5 photographs of a home repair problem. The service assigns each image "
-        "a triangulation role (Wide Shot, Close-up, Scale/Context …), preprocesses them "
-        "for token efficiency, and returns a structured Gemini 2.5 Flash diagnosis."
+        "Submit 1–5 photographs. The service assigns each image a triangulation role, "
+        "preprocesses them for token efficiency, and returns a structured Gemini 2.5 Flash "
+        "assessment."
     ),
 )
 # [SECURITY: code-review] 20 req/min per IP caps Gemini cost from any single

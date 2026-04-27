@@ -26,5 +26,9 @@ class Settings(BaseSettings):
     vapid_public_key:    str = ""  # raw base64url EC public key (sent to browsers)
     vapid_claims_email:  str = ""  # e.g. "mailto:admin@example.com"
 
+    # Vertical — controls domain labels, categories, and AI prompts
+    # Options: "home_repair" (default) | "vehicle_damage"
+    vertical: str = "home_repair"
+
 
 settings = Settings()

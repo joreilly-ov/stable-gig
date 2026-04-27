@@ -53,9 +53,11 @@ def _configure_logging() -> None:
 _configure_logging()
 log = logging.getLogger(__name__)
 
+from app.services.vertical_config import get_vertical_config
+
 app = FastAPI(
-    title="Home Repair Video Analyser",
-    description="Upload a home repair video; get a structured Gemini 2.5 Flash assessment.",
+    title=get_vertical_config()["app_title"],
+    description="Upload photos or video; get a structured Gemini 2.5 Flash assessment.",
     version="0.2.0",
 )
 
@@ -150,6 +152,30 @@ async def feature_flags():
         "push_notifications_enabled": _vapid_configured(),
         "stripe_enabled": bool(settings.stripe_secret_key),
         "smarty_address_enabled": bool(settings.smarty_auth_id),
+    }
+
+
+# --- Vertical config endpoint ---
+@app.get("/api/vertical", tags=["config"])
+async def vertical_config():
+    """Return the active vertical configuration for the frontend.
+
+    The frontend uses this to populate category dropdowns and update
+    domain-specific labels (owner, provider, job type, app title).
+    """
+    from app.config import settings as _settings
+    from app.services.vertical_config import get_vertical_config
+    vcfg = get_vertical_config()
+    return {
+        "vertical":          _settings.vertical,
+        "app_title":         vcfg["app_title"],
+        "owner_label":       vcfg["owner_label"],
+        "provider_label":    vcfg["provider_label"],
+        "providers_label":   vcfg["providers_label"],
+        "job_label":         vcfg["job_label"],
+        "categories":        vcfg["categories_display"],
+        "job_activities":    sorted(vcfg["job_activities"]),
+        "photo_categories":  sorted(vcfg["photo_categories"]),
     }
 
 

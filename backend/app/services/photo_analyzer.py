@@ -29,6 +29,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 import google.generativeai as genai
 from app.config import settings
+from app.services.vertical_config import get_vertical_config
 
 genai.configure(api_key=settings.gemini_api_key)
 
@@ -43,35 +44,7 @@ _MIN_DIMENSION   = 80               # px; anything smaller is a thumbnail or cor
 _BLUR_THRESHOLD  = 6.0              # mean edge-filter intensity; below this → blurry flag
 _MAX_FETCH_BYTES = 20 * 1_024 * 1_024  # 20 MB hard cap per URL fetch
 
-# ---------------------------------------------------------------------------
-# Image role definitions — positional (image[0] = Wide Shot, etc.)
-# ---------------------------------------------------------------------------
-_IMAGE_ROLES: list[tuple[str, str]] = [
-    (
-        "Wide Shot",
-        "Identify the room/area and describe the general location of the problem within it. "
-        "Note the room type, approximate scale, and any relevant surrounding context.",
-    ),
-    (
-        "Close-up",
-        "Identify the specific component, material, or area of damage in precise detail. "
-        "Describe the exact nature of the fault — cracks, leaks, burns, rust, mould, rot, etc.",
-    ),
-    (
-        "Scale / Context",
-        "Look for brand names, model or serial numbers, pipe diameters, cable gauges, "
-        "or any measurement references that help identify the exact part or specification needed.",
-    ),
-    (
-        "Supplemental A",
-        "Use this additional angle to resolve ambiguity from the first three images. "
-        "Flag any new evidence or contradictions that change the diagnosis.",
-    ),
-    (
-        "Supplemental B",
-        "Final supporting view. Integrate any additional evidence into the overall diagnosis.",
-    ),
-]
+# Image roles are sourced from the active vertical config at call time.
 
 # ---------------------------------------------------------------------------
 # Internal dataclass
@@ -91,17 +64,8 @@ class _PreparedImage:
 
 
 # ---------------------------------------------------------------------------
-# Prompt templates
+# Prompt templates — static portion (schema instruction shared across verticals)
 # ---------------------------------------------------------------------------
-_SYSTEM_INTRO = (
-    "You are an expert multi-trade diagnostic engineer with 30 years of hands-on experience "
-    "in plumbing, electrical, structural, damp, roofing, and general home repair.\n\n"
-    "You will be shown between 1 and 5 photographs submitted by a homeowner, each taken from a "
-    "different perspective to enable Multi-Perspective Triangulation. Analyse every image in the "
-    "context of the others to produce a single, confident diagnosis.\n\n"
-    "The customer has provided this description:\n"
-    '"{description}"{category_hint}\n'
-)
 
 _JSON_INSTRUCTION = """
 Based on all images and the customer description, return ONLY a valid JSON object — \
@@ -198,7 +162,8 @@ async def _load_and_preprocess_all(sources: list[str]) -> list[_PreparedImage]:
 
 
 async def _load_and_preprocess(index: int, source: str) -> _PreparedImage:
-    role, instruction = _IMAGE_ROLES[min(index, len(_IMAGE_ROLES) - 1)]
+    image_roles = get_vertical_config()["image_roles"]
+    role, instruction = image_roles[min(index, len(image_roles) - 1)]
 
     # 1. Fetch raw bytes ------------------------------------------------
     try:
@@ -347,9 +312,11 @@ def _call_gemini(
         else ""
     )
 
+    system_intro = get_vertical_config()["system_intro"]
+
     # Build the content list: text role header → PIL image → repeat
     content: list = [
-        _SYSTEM_INTRO.format(description=description, category_hint=category_hint)
+        system_intro.format(description=description, category_hint=category_hint)
     ]
 
     for p in prepared:

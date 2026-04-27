@@ -551,8 +551,8 @@
   </style>
 </head>
 <body>
-  <h1>Home Repair Analyser</h1>
-  <p class="subtitle">Upload a video of your repair issue for an instant AI assessment</p>
+  <h1 id="app-h1">Home Repair Analyser</h1>
+  <p id="app-subtitle" class="subtitle">Upload photos or video of your issue for an instant AI assessment</p>
 
   <!-- ===== LOGIN PAGE ===== -->
   <div id="page-login" class="centered-page" style="display:none">
@@ -792,7 +792,7 @@
       </div>
 
       <div class="form-group">
-        <label for="photo-category">Trade category <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
+        <label id="photo-category-label" for="photo-category">Category <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
         <select id="photo-category" style="width:100%;padding:0.65rem 0.75rem;border:1px solid #ddd;border-radius:6px;font-size:0.95rem;font-family:inherit;background:#fff;outline:none;cursor:pointer">
           <option value="">— Select if known —</option>
           <option value="plumbing">Plumbing</option>
@@ -819,6 +819,54 @@
     let session      = null; // { access_token, email }
     let setupComplete = false;
     let pendingEmail  = "";
+
+    // ------------------------------------------------------------------ //
+    // Vertical bootstrap — fetches /api/vertical and updates UI copy
+    // ------------------------------------------------------------------ //
+    async function bootVertical() {
+      let vcfg;
+      try {
+        const r = await fetch("/api/vertical");
+        if (!r.ok) return;
+        vcfg = await r.json();
+      } catch { return; }
+
+      // Page title + heading
+      document.title = vcfg.app_title;
+      const h1 = document.getElementById("app-h1");
+      if (h1) h1.textContent = vcfg.app_title;
+
+      // Subtitle
+      const subtitle = document.getElementById("app-subtitle");
+      if (subtitle) {
+        subtitle.textContent =
+          vcfg.vertical === "vehicle_damage"
+            ? "Upload photos or video of vehicle damage for an instant AI assessment"
+            : "Upload photos or video of your repair issue for an instant AI assessment";
+      }
+
+      // Photo-category dropdown
+      const catLabel = document.getElementById("photo-category-label");
+      if (catLabel) {
+        const hint = catLabel.querySelector("span");
+        catLabel.childNodes[0].textContent =
+          vcfg.vertical === "vehicle_damage" ? "Damage category " : "Trade category ";
+        if (hint) catLabel.appendChild(hint);
+      }
+      const catSelect = document.getElementById("photo-category");
+      if (catSelect && Array.isArray(vcfg.categories)) {
+        catSelect.innerHTML =
+          '<option value="">— Select if known —</option>' +
+          vcfg.categories.map(c => `<option value="${c.value}">${c.label}</option>`).join("");
+      }
+
+      // Interests grid categories (contractor signup)
+      if (Array.isArray(vcfg.categories)) {
+        TRADE_CATEGORIES = vcfg.categories.map(c => ({
+          value: c.value, label: c.label, icon: c.icon || "🛠️",
+        }));
+      }
+    }
 
     // ------------------------------------------------------------------ //
     // ProtectedRoute
@@ -898,6 +946,9 @@
     // Auth boot
     // ------------------------------------------------------------------ //
     async function bootAuth() {
+      // 0. Apply vertical config (labels, categories) — best-effort, never blocks auth
+      await bootVertical();
+
       // 1. Load public Supabase config
       try {
         const r = await fetch("/auth/config");
@@ -1281,7 +1332,7 @@
     // ------------------------------------------------------------------ //
     // Signup page
     // ------------------------------------------------------------------ //
-    const TRADE_CATEGORIES = [
+    let TRADE_CATEGORIES = [
       { value: "plumbing",    label: "Plumbing",    icon: "🔧" },
       { value: "electrical",  label: "Electrical",  icon: "⚡" },
       { value: "structural",  label: "Structural",  icon: "🏗️" },

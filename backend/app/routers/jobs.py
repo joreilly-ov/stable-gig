@@ -21,15 +21,13 @@ from pydantic import BaseModel, Field
 
 from app.database import get_supabase_admin
 from app.dependencies import get_current_user
+from app.services.vertical_config import get_vertical_config
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 log = logging.getLogger(__name__)
 
-_VALID_ACTIVITIES = {
-    "plumbing", "electrical", "structural", "damp", "roofing",
-    "carpentry", "painting", "tiling", "flooring", "heating_hvac",
-    "glazing", "landscaping", "general",
-}
+# Resolved once at startup from the active vertical config.
+_VALID_ACTIVITIES: frozenset[str] = get_vertical_config()["job_activities"]
 
 _VALID_STATUSES = {"draft", "open", "awarded", "in_progress", "completed", "cancelled"}
 

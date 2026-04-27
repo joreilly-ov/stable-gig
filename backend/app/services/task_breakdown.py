@@ -19,6 +19,7 @@ import re
 import google.generativeai as genai
 
 from app.config import settings
+from app.services.vertical_config import get_vertical_config
 
 log = logging.getLogger(__name__)
 
@@ -48,11 +49,15 @@ def _build_prompt(
     context_block = "\n".join(context_lines)
     context_section = f"\nAdditional context:\n{context_block}\n" if context_block else ""
 
-    return f"""You are a professional home repair project planner.
+    vcfg     = get_vertical_config()
+    role     = vcfg["task_breakdown_role"]
+    provider = vcfg["task_breakdown_provider"]
+
+    return f"""You are a {role}.
 
 Repair description:
 \"\"\"{description}\"\"\"{context_section}
-Break this repair into a clear, ordered sequence of practical tasks that a tradesperson would follow on site.
+Break this repair into a clear, ordered sequence of practical tasks that a {provider} would follow on site.
 
 Rules:
 - Return ONLY a JSON object — no markdown, no explanation.
@@ -62,15 +67,15 @@ Rules:
     "difficulty_level" — one of: "easy", "medium", "hard"
     "estimated_minutes"— positive integer (realistic on-site time, excluding travel)
 - Order tasks chronologically (preparation → execution → cleanup/sign-off).
-- Include safety/isolation steps first (e.g. isolate power, shut off water) where relevant.
+- Include safety/isolation steps first where relevant.
 - Minimum 2 tasks, maximum 12 tasks.
 - difficulty_level reflects the skill and care required, not just the time:
-    easy   — any competent DIYer can do it
+    easy   — any competent person can do it
     medium — requires trade experience or specific tools
     hard   — specialist knowledge, certification, or significant risk if done wrong
 
 Example output shape (do not copy this content):
-{{"tasks": [{{"title": "Turn off water supply", "difficulty_level": "easy", "estimated_minutes": 5}}]}}"""
+{{"tasks": [{{"title": "Assess damage and make safe", "difficulty_level": "easy", "estimated_minutes": 10}}]}}"""
 
 
 def _call_gemini(prompt: str) -> str:
