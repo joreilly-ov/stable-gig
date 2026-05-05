@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,10 +56,34 @@ log = logging.getLogger(__name__)
 
 from app.services.vertical_config import get_vertical_config
 
+
+async def _run_startup_checks() -> None:
+    """Log configuration status for optional services."""
+    from app.config import settings
+    from app.services.push_service import _vapid_configured
+
+    if not _vapid_configured():
+        log.error(
+            "CRITICAL: VAPID not configured. Push notifications disabled.",
+            extra={
+                "hint": "Set VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_CLAIMS_EMAIL in environment.",
+            },
+        )
+
+    if not settings.stripe_secret_key:
+        log.warning("Stripe secret key not configured. Payment processing disabled.")
+
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    await _run_startup_checks()
+    yield
+
 app = FastAPI(
     title=get_vertical_config()["app_title"],
     description="Upload photos or video; get a structured Gemini 2.5 Flash assessment.",
     version="0.2.0",
+    lifespan=_lifespan,
 )
 
 app.state.limiter = limiter
@@ -116,26 +141,6 @@ app.add_middleware(  # registered last → outermost layer, wraps _MaxBodySizeMi
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# --- Startup health checks ---
-@app.on_event("startup")
-async def startup_checks():
-    """Log configuration status for optional services."""
-    from app.config import settings
-    from app.services.push_service import _vapid_configured
-    
-    if not _vapid_configured():
-        log.error(
-            "CRITICAL: VAPID not configured. Push notifications disabled.",
-            extra={
-                "hint": "Set VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_CLAIMS_EMAIL in environment.",
-            },
-        )
-    
-    if not settings.stripe_secret_key:
-        log.warning("Stripe secret key not configured. Payment processing disabled.")
-
 
 # --- Feature flags endpoint ---
 @app.get("/config/feature-flags", tags=["config"])

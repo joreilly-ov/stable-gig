@@ -280,7 +280,11 @@ def _sharpness_score(img: Image.Image) -> float:
     A clear photo typically scores >10; blurry photos score <6.
     """
     gray   = img.convert("L").filter(ImageFilter.FIND_EDGES)
-    pixels = list(gray.getdata())
+    # Pillow deprecates getdata() for flattened access; keep a fallback for older versions.
+    if hasattr(gray, "get_flattened_data"):
+        pixels = list(gray.get_flattened_data())
+    else:
+        pixels = list(gray.getdata())
     return statistics.fmean(pixels) if pixels else 0.0
 
 
