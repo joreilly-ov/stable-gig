@@ -8,6 +8,7 @@ Source of truth: FastAPI router table plus discovered pytest call sites.
 | GET | `/address/zip` | `zip_lookup` | test_address_router.py |
 | POST | `/analyse` | `analyse_video` | test_analyse_router.py |
 | POST | `/analyse/photos` | `analyse_photos` | test_photo_analysis_router.py |
+| GET | `/api/vertical` | `vertical_config` | (none found) |
 | GET | `/auth/config` | `auth_config` | test_auth_router.py |
 | POST | `/auth/forgot-password` | `forgot_password` | test_auth_router.py |
 | POST | `/auth/login/password` | `login_with_password` | test_auth_router.py |

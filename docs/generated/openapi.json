@@ -1,1944 +1,29 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "Home Repair Video Analyser",
-    "description": "Upload a home repair video; get a structured Gemini 2.5 Flash assessment.",
-    "version": "0.2.0"
-  },
-  "paths": {
-    "/config/feature-flags": {
-      "get": {
-        "tags": [
-          "config"
-        ],
-        "summary": "Feature Flags",
-        "description": "Return the status of optional features.\n\nFrontend can use this to gracefully degrade (e.g., hide push-notification buttons\nif push is disabled) without making extra API calls.",
-        "operationId": "feature_flags_config_feature_flags_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/analyse": {
-      "post": {
-        "tags": [
-          "analyse"
-        ],
-        "summary": "Analyse Video",
-        "operationId": "analyse_video_analyse_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_analyse_video_analyse_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/analyse/photos": {
-      "post": {
-        "tags": [
-          "photo_analysis"
-        ],
-        "summary": "Analyse trade issue from photos",
-        "description": "Submit 1\u20135 photographs of a home repair problem. The service assigns each image a triangulation role (Wide Shot, Close-up, Scale/Context \u2026), preprocesses them for token efficiency, and returns a structured Gemini 2.5 Flash diagnosis.",
-        "operationId": "analyse_photos_analyse_photos_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PhotoAnalysisRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PhotoAnalysisResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/auth/config": {
-      "get": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Auth Config",
-        "description": "Return public Supabase config needed for client-side OAuth (safe to expose).",
-        "operationId": "auth_config_auth_config_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/magic-link": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Send Magic Link",
-        "description": "Send a one-time magic-link / OTP to the given email address.",
-        "operationId": "send_magic_link_auth_magic_link_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MagicLinkRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/verify": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Verify Otp",
-        "description": "Exchange an email OTP token for a Supabase session (access_token).",
-        "operationId": "verify_otp_auth_verify_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OTPVerifyRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/register": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Register With Password",
-        "description": "Register a new account with email + password.\n\nSupabase enforces one account per email across all providers \u2014 attempting\nto register with an address already used by Google / magic-link returns a\nclear error rather than creating a duplicate.",
-        "operationId": "register_with_password_auth_register_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordAuthRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/login/password": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Login With Password",
-        "description": "Sign in with email + password.",
-        "operationId": "login_with_password_auth_login_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordAuthRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/forgot-password": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Forgot Password",
-        "description": "Send a password-reset email.  Always returns 202 to avoid leaking whether\nan address is registered (email enumeration defence).",
-        "operationId": "forgot_password_auth_forgot_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordResetRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/reset-password": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Reset Password",
-        "description": "Exchange a recovery access_token for a new password and return a fresh session.",
-        "operationId": "reset_password_auth_reset_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/me/profile": {
-      "get": {
-        "tags": [
-          "profiles"
-        ],
-        "summary": "Get Profile",
-        "operationId": "get_profile_me_profile_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProfileResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "patch": {
-        "tags": [
-          "profiles"
-        ],
-        "summary": "Update Profile",
-        "operationId": "update_profile_me_profile_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProfileUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProfileResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/address/zip": {
-      "get": {
-        "tags": [
-          "address"
-        ],
-        "summary": "Zip Lookup",
-        "operationId": "zip_lookup_address_zip_get",
-        "parameters": [
-          {
-            "name": "postcode",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^\\d{5}$",
-              "description": "5-digit US ZIP code",
-              "title": "Postcode"
-            },
-            "description": "5-digit US ZIP code"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZipLookupResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/address/autocomplete": {
-      "get": {
-        "tags": [
-          "address"
-        ],
-        "summary": "Address Autocomplete",
-        "operationId": "address_autocomplete_address_autocomplete_get",
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 3,
-              "description": "Partial street address",
-              "title": "Search"
-            },
-            "description": "Partial street address"
-          },
-          {
-            "name": "postcode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "^\\d{5}$"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Restrict to ZIP",
-              "title": "Postcode"
-            },
-            "description": "Restrict to ZIP"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AddressSuggestion"
-                  },
-                  "title": "Response Address Autocomplete Address Autocomplete Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/me/metadata": {
-      "get": {
-        "tags": [
-          "user_metadata"
-        ],
-        "summary": "Get Metadata",
-        "operationId": "get_metadata_me_metadata_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserMetadataResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "patch": {
-        "tags": [
-          "user_metadata"
-        ],
-        "summary": "Update Metadata",
-        "operationId": "update_metadata_me_metadata_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserMetadataUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserMetadataResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/reviews": {
-      "post": {
-        "tags": [
-          "reviews"
-        ],
-        "summary": "Submit Review",
-        "description": "Submit a review for a contractor on a completed job.",
-        "operationId": "submit_review_reviews_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviewCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/reviews/contractor/{contractor_id}": {
-      "get": {
-        "tags": [
-          "reviews"
-        ],
-        "summary": "List Contractor Reviews",
-        "description": "Return all reviews for a contractor, newest first.",
-        "operationId": "list_contractor_reviews_reviews_contractor__contractor_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "contractor_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Contractor Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/reviews/{review_id}": {
-      "delete": {
-        "tags": [
-          "reviews"
-        ],
-        "summary": "Delete Review",
-        "description": "Soft-delete a review (reviewer only).",
-        "operationId": "delete_review_reviews__review_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "review_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Review Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/reviews/summary/{contractor_id}": {
-      "get": {
-        "tags": [
-          "reviews"
-        ],
-        "summary": "Contractor Review Summary",
-        "description": "Return aggregated rating averages for a contractor (public, no auth).",
-        "operationId": "contractor_review_summary_reviews_summary__contractor_id__get",
-        "parameters": [
-          {
-            "name": "contractor_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Contractor Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/rfp": {
-      "post": {
-        "tags": [
-          "rfp"
-        ],
-        "summary": "Generate Rfp",
-        "description": "Generate (or regenerate) the RFP for a job.\n\nRequires ``analysis_result`` to be stored on the job.  Call this after the\nhomeowner has answered any clarifying questions from the initial analysis.\n\nThe response includes:\n- The full RFP document (scope, trade category, permit flags, etc.)\n- A private cost estimate range in GBP pence\n- Permit / planning considerations\n\nThe RFP and cost fields are also written back to the job row.",
-        "operationId": "generate_rfp_jobs__job_id__rfp_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RFPRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/contractors/matches": {
-      "get": {
-        "tags": [
-          "contractor-matching"
-        ],
-        "summary": "Match Contractors For Job",
-        "description": "Return contractors best matched to this job.\n\nRanking uses cosine similarity between the job's RFP text and each\ncontractor's stored profile embedding.  If no embeddings exist yet (new\nplatform with no contractors who have called ``/me/contractor/embed-profile``),\nthe endpoint falls back to a simple activity-category filter.\n\nResponse fields per contractor:\n- All ``contractors`` table columns\n- ``contractor_details``: nested details object (may be null)\n- ``match_score``: float 0\u20131 from embedding similarity, or null for fallback rows\n\nQuery params:\n- ``limit`` (int, default 10): max contractors to return",
-        "operationId": "match_contractors_for_job_jobs__job_id__contractors_matches_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/me/contractor/embed-profile": {
-      "post": {
-        "tags": [
-          "contractor-matching"
-        ],
-        "summary": "Embed My Profile",
-        "description": "Regenerate the embedding for the calling contractor's profile.\n\nThis should be called after any change to business details \u2014 the embedding\npowers the semantic matching shown to homeowners when they request bids.\n\nResponse:\n- ``profile_text``: the plain-text summary that was embedded\n- ``embedding_dimensions``: 768 (confirms model version)",
-        "operationId": "embed_my_profile_me_contractor_embed_profile_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/escrow/config": {
-      "get": {
-        "tags": [
-          "escrow"
-        ],
-        "summary": "Escrow Config",
-        "description": "Return the Stripe publishable key for frontend SDK initialisation.\n\nThe frontend should call this once on mount to get the key it needs to\nload Stripe.js and render the Payment Element.",
-        "operationId": "escrow_config_escrow_config_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/escrow/initiate": {
-      "post": {
-        "tags": [
-          "escrow"
-        ],
-        "summary": "Initiate Escrow",
-        "description": "Initiate escrow payment for an awarded job.\n\nThe job must be in 'awarded' status (a bid has been accepted).\nReturns a Stripe client_secret \u2014 pass this to the Stripe Payment Element\non the frontend to collect and confirm the payment.\n\nResponse:\n- client_secret:          for Stripe.js confirmPayment()\n- provider_ref:           PaymentIntent ID (store for your records)\n- amount_pence:           amount charged (from the accepted bid)\n- currency:               always \"gbp\"\n- stripe_publishable_key: convenience \u2014 same as GET /escrow/config",
-        "operationId": "initiate_escrow_jobs__job_id__escrow_initiate_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/escrow": {
-      "get": {
-        "tags": [
-          "escrow"
-        ],
-        "summary": "Get Escrow Status",
-        "description": "Return current escrow status for a job.\n\nAccessible to both the homeowner and the job's contractor.\n\nResponse:\n- job_escrow_status:  current status on the jobs table\n- transaction:        full escrow_transactions record (or null if not yet initiated)",
-        "operationId": "get_escrow_status_jobs__job_id__escrow_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/escrow/release": {
-      "post": {
-        "tags": [
-          "escrow"
-        ],
-        "summary": "Release Escrow",
-        "description": "Release held funds to the contractor.\n\nCan only be called by the homeowner when escrow_status is 'held'.\nIf the contractor has not linked a Stripe Connect account, payout_pending\nwill be true \u2014 the platform admin must complete the transfer manually.\n\nResponse:\n- status:         \"released\"\n- transfer_id:    Stripe Transfer ID (null if payout_pending)\n- payout_pending: true if contractor has no connected Stripe account",
-        "operationId": "release_escrow_jobs__job_id__escrow_release_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReleaseRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/escrow/refund": {
-      "post": {
-        "tags": [
-          "escrow"
-        ],
-        "summary": "Refund Escrow",
-        "description": "Refund held funds to the homeowner.\n\nOnly valid while escrow_status is 'held'.  Once released, refunds must be\nhandled manually through the payment provider dashboard.\n\nResponse:\n- status:    \"refunded\"\n- refund_id: Stripe Refund ID",
-        "operationId": "refund_escrow_jobs__job_id__escrow_refund_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefundRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/me/contractor/connect-onboard": {
-      "post": {
-        "tags": [
-          "contractor-connect"
-        ],
-        "summary": "Connect Onboard",
-        "description": "Start or resume Stripe Connect onboarding for a contractor.\n\nReturns a single-use URL valid for ~5 minutes.  Redirect the contractor\nto this URL immediately \u2014 do not cache it.\n\nResponse:\n- onboarding_url:  redirect the contractor here\n- account_id:      Stripe account ID (store for reference; also saved server-side)\n- expires_at:      Unix timestamp when the link expires",
-        "operationId": "connect_onboard_me_contractor_connect_onboard_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConnectOnboardRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/me/contractor/connect-status": {
-      "get": {
-        "tags": [
-          "contractor-connect"
-        ],
-        "summary": "Connect Status",
-        "description": "Return the contractor's Stripe Connect account status.\n\nResponse:\n- connected:         false if no account linked yet\n- charges_enabled:   true when the account can accept payments\n- payouts_enabled:   true when the account can receive payouts\n- details_submitted: true when onboarding form is complete\n- account_id:        Stripe account ID (null if not connected)",
-        "operationId": "connect_status_me_contractor_connect_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/jobs/{job_id}/questions": {
-      "post": {
-        "tags": [
-          "questions"
-        ],
-        "summary": "Ask Question",
-        "description": "Contractor submits an anonymous clarifying question on a job.",
-        "operationId": "ask_question_jobs__job_id__questions_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QuestionCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "questions"
-        ],
-        "summary": "List Questions",
-        "description": "List questions on a job.\n\n- Job owner: sees all questions, contractor identity anonymised as \"Contractor N\".\n- Contractor: sees only their own questions, identified as \"You\".",
-        "operationId": "list_questions_jobs__job_id__questions_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/questions/{question_id}": {
-      "patch": {
-        "tags": [
-          "questions"
-        ],
-        "summary": "Answer Question",
-        "description": "Job owner answers a contractor's question.",
-        "operationId": "answer_question_jobs__job_id__questions__question_id__patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "question_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Question Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QuestionAnswer"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/notifications/vapid-public-key": {
-      "get": {
-        "tags": [
-          "notifications"
-        ],
-        "summary": "Vapid Public Key",
-        "description": "Return the VAPID application server public key.\n\nThe frontend passes this as the `applicationServerKey` when calling\nPushManager.subscribe().  The key is not secret.",
-        "operationId": "vapid_public_key_notifications_vapid_public_key_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/notifications/subscribe": {
-      "post": {
-        "tags": [
-          "notifications"
-        ],
-        "summary": "Subscribe",
-        "description": "Register a Web Push subscription for the authenticated user.\n\nUpserts on (user_id, endpoint) \u2014 safe to call again after a page refresh\nto keep the stored subscription fresh.",
-        "operationId": "subscribe_notifications_subscribe_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PushSubscriptionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "notifications"
-        ],
-        "summary": "Unsubscribe",
-        "description": "Remove a push subscription endpoint for the authenticated user.",
-        "operationId": "unsubscribe_notifications_subscribe_delete",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PushSubscriptionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/jobs/{job_id}/milestones": {
-      "post": {
-        "tags": [
-          "milestones"
-        ],
-        "summary": "Create Milestones",
-        "description": "Homeowner defines milestones for a job.\n\nCan be called on jobs with status 'awarded' or 'in_progress'.\nExisting milestones are not deleted \u2014 new ones are appended.",
-        "operationId": "create_milestones_jobs__job_id__milestones_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MilestoneBatch"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "milestones"
-        ],
-        "summary": "List Milestones",
-        "description": "List milestones with their photo evidence.\n\nAccessible to the job owner and the job's accepted contractor.",
-        "operationId": "list_milestones_jobs__job_id__milestones_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/milestones/{milestone_id}/photos": {
-      "post": {
-        "tags": [
-          "milestones"
-        ],
-        "summary": "Submit Photo",
-        "description": "Accepted contractor submits photo evidence for a milestone.\n\nMoves the milestone status from 'pending' or 'rejected' \u2192 'submitted'.\nPass ?analyse=true to also run the TradePhotoAnalyzer and return an\nAI-generated assessment alongside the saved photo record.",
-        "operationId": "submit_photo_jobs__job_id__milestones__milestone_id__photos_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "milestone_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Milestone Id"
-            }
-          },
-          {
-            "name": "analyse",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Run AI analysis on the photo and include the result.",
-              "default": false,
-              "title": "Analyse"
-            },
-            "description": "Run AI analysis on the photo and include the result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PhotoSubmit"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{job_id}/milestones/{milestone_id}": {
-      "patch": {
-        "tags": [
-          "milestones"
-        ],
-        "summary": "Action Milestone",
-        "description": "Job owner approves or rejects a submitted milestone.\n\nOnly milestones in 'submitted' status can be actioned.\nApproval sets status \u2192 'approved' and records approved_at.\nRejection sets status \u2192 'rejected'; the contractor can re-submit.",
-        "operationId": "action_milestone_jobs__job_id__milestones__milestone_id__patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "milestone_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Milestone Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MilestoneAction"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/contractors/me/documents": {
-      "get": {
-        "tags": [
-          "contractor-documents"
-        ],
-        "summary": "List Own Documents",
-        "description": "List all documents uploaded by the authenticated contractor (all statuses).",
-        "operationId": "list_own_documents_contractors_me_documents_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "contractor-documents"
-        ],
-        "summary": "Upload Document",
-        "description": "Upload an official document. AI field extraction runs immediately.\n\nOn success the record is returned with status 'verified' (all required\nfields extracted) or 'needs_review' (poor scan / wrong document type).",
-        "operationId": "upload_document_contractors_me_documents_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DocumentUpload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/contractors/{contractor_id}/documents": {
-      "get": {
-        "tags": [
-          "contractor-documents"
-        ],
-        "summary": "List Contractor Documents",
-        "description": "List verified, non-expired documents for a contractor (public endpoint).\n\nfile_source is excluded to avoid returning raw document bytes to third parties.",
-        "operationId": "list_contractor_documents_contractors__contractor_id__documents_get",
-        "parameters": [
-          {
-            "name": "contractor_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Contractor Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/contractors/me/documents/{doc_id}": {
-      "delete": {
-        "tags": [
-          "contractor-documents"
-        ],
-        "summary": "Delete Document",
-        "description": "Soft-delete a document. The record is retained for audit purposes.",
-        "operationId": "delete_document_contractors_me_documents__doc_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Doc Id"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
   "components": {
     "schemas": {
       "AddressSuggestion": {
         "properties": {
-          "street_line": {
-            "type": "string",
-            "title": "Street Line"
-          },
           "city": {
-            "type": "string",
-            "title": "City"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "zipcode": {
-            "type": "string",
-            "title": "Zipcode"
+            "title": "City",
+            "type": "string"
           },
           "display": {
-            "type": "string",
-            "title": "Display"
+            "title": "Display",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "street_line": {
+            "title": "Street Line",
+            "type": "string"
+          },
+          "zipcode": {
+            "title": "Zipcode",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "street_line",
           "city",
@@ -1946,15 +31,11 @@
           "zipcode",
           "display"
         ],
-        "title": "AddressSuggestion"
+        "title": "AddressSuggestion",
+        "type": "object"
       },
       "Body_analyse_video_analyse_post": {
         "properties": {
-          "file": {
-            "type": "string",
-            "format": "binary",
-            "title": "File"
-          },
           "browser_lat": {
             "anyOf": [
               {
@@ -1976,60 +57,76 @@
               }
             ],
             "title": "Browser Lon"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "file"
         ],
-        "title": "Body_analyse_video_analyse_post"
+        "title": "Body_analyse_video_analyse_post",
+        "type": "object"
       },
       "ConnectOnboardRequest": {
         "properties": {
-          "return_url": {
-            "type": "string",
-            "title": "Return Url",
-            "description": "URL Stripe redirects the contractor to after onboarding completes."
-          },
           "refresh_url": {
-            "type": "string",
+            "description": "URL Stripe redirects to if the onboarding link expires.",
             "title": "Refresh Url",
-            "description": "URL Stripe redirects to if the onboarding link expires."
+            "type": "string"
+          },
+          "return_url": {
+            "description": "URL Stripe redirects the contractor to after onboarding completes.",
+            "title": "Return Url",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "return_url",
           "refresh_url"
         ],
-        "title": "ConnectOnboardRequest"
+        "title": "ConnectOnboardRequest",
+        "type": "object"
       },
       "DocumentUpload": {
         "properties": {
           "document_type": {
-            "type": "string",
+            "description": "One of: insurance, licence, certification, other",
             "title": "Document Type",
-            "description": "One of: insurance, licence, certification, other"
+            "type": "string"
           },
           "file_name": {
-            "type": "string",
             "maxLength": 255,
             "minLength": 1,
-            "title": "File Name"
+            "title": "File Name",
+            "type": "string"
           },
           "file_source": {
-            "type": "string",
+            "description": "HTTPS URL or base64 data URI of the document image or scan.",
             "title": "File Source",
-            "description": "HTTPS URL or base64 data URI of the document image or scan."
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "document_type",
           "file_name",
           "file_source"
         ],
-        "title": "DocumentUpload"
+        "title": "DocumentUpload",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2037,33 +134,19 @@
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
-            "type": "array",
-            "title": "Detail"
+            "title": "Detail",
+            "type": "array"
           }
         },
-        "type": "object",
-        "title": "HTTPValidationError"
+        "title": "HTTPValidationError",
+        "type": "object"
       },
       "ImageFeedback": {
+        "description": "Quality assessment for a single submitted image.",
         "properties": {
           "index": {
-            "type": "integer",
-            "title": "Index"
-          },
-          "role": {
-            "type": "string",
-            "title": "Role",
-            "description": "Triangulation role assigned to this image."
-          },
-          "quality": {
-            "type": "string",
-            "enum": [
-              "ok",
-              "blurry",
-              "unidentifiable",
-              "unsupported"
-            ],
-            "title": "Quality"
+            "title": "Index",
+            "type": "integer"
           },
           "note": {
             "anyOf": [
@@ -2074,79 +157,87 @@
                 "type": "null"
               }
             ],
-            "title": "Note",
-            "description": "Human-readable explanation when quality != 'ok'."
+            "description": "Human-readable explanation when quality != 'ok'.",
+            "title": "Note"
+          },
+          "quality": {
+            "enum": [
+              "ok",
+              "blurry",
+              "unidentifiable",
+              "unsupported"
+            ],
+            "title": "Quality",
+            "type": "string"
+          },
+          "role": {
+            "description": "Triangulation role assigned to this image.",
+            "title": "Role",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "index",
           "role",
           "quality"
         ],
         "title": "ImageFeedback",
-        "description": "Quality assessment for a single submitted image."
+        "type": "object"
       },
       "MagicLinkRequest": {
         "properties": {
           "email": {
-            "type": "string",
             "format": "email",
-            "title": "Email"
+            "title": "Email",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "email"
         ],
-        "title": "MagicLinkRequest"
+        "title": "MagicLinkRequest",
+        "type": "object"
       },
       "MilestoneAction": {
         "properties": {
           "action": {
-            "type": "string",
+            "description": "'approve' or 'reject'",
             "title": "Action",
-            "description": "'approve' or 'reject'"
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "action"
         ],
-        "title": "MilestoneAction"
+        "title": "MilestoneAction",
+        "type": "object"
       },
       "MilestoneBatch": {
         "properties": {
           "milestones": {
+            "description": "Ordered list of milestones to create for the job.",
             "items": {
               "$ref": "#/components/schemas/MilestoneCreate"
             },
-            "type": "array",
             "maxItems": 20,
             "minItems": 1,
             "title": "Milestones",
-            "description": "Ordered list of milestones to create for the job."
+            "type": "array"
           }
         },
-        "type": "object",
         "required": [
           "milestones"
         ],
-        "title": "MilestoneBatch"
+        "title": "MilestoneBatch",
+        "type": "object"
       },
       "MilestoneCreate": {
         "properties": {
-          "title": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Title"
-          },
           "description": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "maxLength": 2000,
+                "type": "string"
               },
               {
                 "type": "null"
@@ -2155,106 +246,112 @@
             "title": "Description"
           },
           "order_index": {
-            "type": "integer",
+            "default": 0,
             "minimum": 0.0,
             "title": "Order Index",
-            "default": 0
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Title",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "title"
         ],
-        "title": "MilestoneCreate"
+        "title": "MilestoneCreate",
+        "type": "object"
       },
       "OTPVerifyRequest": {
         "properties": {
           "email": {
-            "type": "string",
             "format": "email",
-            "title": "Email"
+            "title": "Email",
+            "type": "string"
           },
           "token": {
-            "type": "string",
-            "title": "Token"
+            "title": "Token",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "email",
           "token"
         ],
-        "title": "OTPVerifyRequest"
+        "title": "OTPVerifyRequest",
+        "type": "object"
       },
       "PasswordAuthRequest": {
         "properties": {
           "email": {
-            "type": "string",
             "format": "email",
-            "title": "Email"
+            "title": "Email",
+            "type": "string"
           },
           "password": {
-            "type": "string",
-            "title": "Password"
+            "title": "Password",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "email",
           "password"
         ],
-        "title": "PasswordAuthRequest"
+        "title": "PasswordAuthRequest",
+        "type": "object"
       },
       "PasswordResetRequest": {
         "properties": {
           "email": {
-            "type": "string",
             "format": "email",
-            "title": "Email"
+            "title": "Email",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "email"
         ],
-        "title": "PasswordResetRequest"
+        "title": "PasswordResetRequest",
+        "type": "object"
       },
       "PasswordUpdateRequest": {
         "properties": {
           "access_token": {
-            "type": "string",
-            "title": "Access Token"
+            "title": "Access Token",
+            "type": "string"
           },
           "new_password": {
-            "type": "string",
-            "title": "New Password"
+            "title": "New Password",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "access_token",
           "new_password"
         ],
-        "title": "PasswordUpdateRequest"
+        "title": "PasswordUpdateRequest",
+        "type": "object"
       },
       "PhotoAnalysisRequest": {
         "properties": {
-          "images": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 5,
-            "minItems": 1,
-            "title": "Images",
-            "description": "1\u20135 image sources. Each must be an HTTPS URL or a base64 data URI (data:image/<type>;base64,<data>). Supported formats: JPEG, PNG, WebP."
-          },
           "description": {
-            "type": "string",
+            "description": "Brief customer description of the problem (10\u20131000 characters).",
             "maxLength": 1000,
             "minLength": 10,
             "title": "Description",
-            "description": "Brief customer description of the problem (10\u20131000 characters)."
+            "type": "string"
+          },
+          "images": {
+            "description": "1\u20135 image sources. Each must be an HTTPS URL or a base64 data URI (data:image/<type>;base64,<data>). Supported formats: JPEG, PNG, WebP.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Images",
+            "type": "array"
           },
           "trade_category": {
             "anyOf": [
@@ -2265,61 +362,60 @@
                 "type": "null"
               }
             ],
-            "title": "Trade Category",
-            "description": "Optional trade hint. Must be one of: ['damp', 'electrical', 'general', 'plumbing', 'roofing', 'structural']. Omit if unknown."
+            "description": "Optional category hint. Omit if unknown.",
+            "title": "Trade Category"
           }
         },
-        "type": "object",
         "required": [
           "images",
           "description"
         ],
-        "title": "PhotoAnalysisRequest"
+        "title": "PhotoAnalysisRequest",
+        "type": "object"
       },
       "PhotoAnalysisResponse": {
         "properties": {
-          "likely_issue": {
-            "type": "string",
-            "title": "Likely Issue",
-            "description": "Concise one-sentence diagnosis. Set to 'INSUFFICIENT_EVIDENCE' when the images do not provide enough detail for a confident diagnosis."
-          },
-          "urgency_score": {
-            "type": "integer",
-            "maximum": 10.0,
-            "minimum": 1.0,
-            "title": "Urgency Score",
-            "description": "1 = cosmetic / can wait, 10 = immediate safety risk."
-          },
-          "required_tools": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Required Tools",
-            "description": "Specific tools needed for the repair."
-          },
           "estimated_parts": {
+            "description": "Parts or materials identified (with sizes/specs where visible).",
             "items": {
               "type": "string"
             },
-            "type": "array",
             "title": "Estimated Parts",
-            "description": "Parts or materials identified (with sizes/specs where visible)."
+            "type": "array"
           },
           "image_feedback": {
+            "description": "Per-image quality flags from the preprocessing stage.",
             "items": {
               "$ref": "#/components/schemas/ImageFeedback"
             },
-            "type": "array",
             "title": "Image Feedback",
-            "description": "Per-image quality flags from the preprocessing stage."
+            "type": "array"
+          },
+          "likely_issue": {
+            "description": "Concise one-sentence diagnosis. Set to 'INSUFFICIENT_EVIDENCE' when the images do not provide enough detail for a confident diagnosis.",
+            "title": "Likely Issue",
+            "type": "string"
+          },
+          "required_tools": {
+            "description": "Specific tools needed for the repair.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Tools",
+            "type": "array"
           },
           "token_usage_estimate": {
             "$ref": "#/components/schemas/TokenUsage",
             "description": "Actual Gemini token counts \u2014 zero when the API does not return them."
+          },
+          "urgency_score": {
+            "description": "1 = cosmetic / can wait, 10 = immediate safety risk.",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Urgency Score",
+            "type": "integer"
           }
         },
-        "type": "object",
         "required": [
           "likely_issue",
           "urgency_score",
@@ -2328,20 +424,21 @@
           "image_feedback",
           "token_usage_estimate"
         ],
-        "title": "PhotoAnalysisResponse"
+        "title": "PhotoAnalysisResponse",
+        "type": "object"
       },
       "PhotoSubmit": {
         "properties": {
           "image_source": {
-            "type": "string",
+            "description": "HTTPS URL or base64 data URI of the completion photo.",
             "title": "Image Source",
-            "description": "HTTPS URL or base64 data URI of the completion photo."
+            "type": "string"
           },
           "note": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 500
+                "maxLength": 500,
+                "type": "string"
               },
               {
                 "type": "null"
@@ -2350,17 +447,28 @@
             "title": "Note"
           }
         },
-        "type": "object",
         "required": [
           "image_source"
         ],
-        "title": "PhotoSubmit"
+        "title": "PhotoSubmit",
+        "type": "object"
       },
       "ProfileResponse": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
           },
           "full_name": {
             "anyOf": [
@@ -2372,6 +480,10 @@
               }
             ],
             "title": "Full Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
           },
           "postcode": {
             "anyOf": [
@@ -2395,17 +507,6 @@
             ],
             "title": "Road Address"
           },
-          "city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "City"
-          },
           "state": {
             "anyOf": [
               {
@@ -2416,13 +517,8 @@
               }
             ],
             "title": "State"
-          },
-          "created_at": {
-            "type": "string",
-            "title": "Created At"
           }
         },
-        "type": "object",
         "required": [
           "id",
           "full_name",
@@ -2432,10 +528,22 @@
           "state",
           "created_at"
         ],
-        "title": "ProfileResponse"
+        "title": "ProfileResponse",
+        "type": "object"
       },
       "ProfileUpdate": {
         "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
           "full_name": {
             "anyOf": [
               {
@@ -2469,17 +577,6 @@
             ],
             "title": "Road Address"
           },
-          "city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "City"
-          },
           "state": {
             "anyOf": [
               {
@@ -2492,66 +589,66 @@
             "title": "State"
           }
         },
-        "type": "object",
-        "title": "ProfileUpdate"
+        "title": "ProfileUpdate",
+        "type": "object"
       },
       "PushSubscriptionCreate": {
         "properties": {
+          "auth_key": {
+            "description": "Auth secret (base64url).",
+            "title": "Auth Key",
+            "type": "string"
+          },
           "endpoint": {
-            "type": "string",
+            "description": "Push service endpoint URL.",
             "title": "Endpoint",
-            "description": "Push service endpoint URL."
+            "type": "string"
           },
           "p256dh": {
-            "type": "string",
+            "description": "ECDH public key (base64url).",
             "title": "P256Dh",
-            "description": "ECDH public key (base64url)."
-          },
-          "auth_key": {
-            "type": "string",
-            "title": "Auth Key",
-            "description": "Auth secret (base64url)."
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "endpoint",
           "p256dh",
           "auth_key"
         ],
-        "title": "PushSubscriptionCreate"
+        "title": "PushSubscriptionCreate",
+        "type": "object"
       },
       "QuestionAnswer": {
         "properties": {
           "answer": {
-            "type": "string",
+            "description": "Homeowner's answer to the contractor's question.",
             "maxLength": 2000,
             "minLength": 1,
             "title": "Answer",
-            "description": "Homeowner's answer to the contractor's question."
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "answer"
         ],
-        "title": "QuestionAnswer"
+        "title": "QuestionAnswer",
+        "type": "object"
       },
       "QuestionCreate": {
         "properties": {
           "question": {
-            "type": "string",
+            "description": "Clarifying question about the job (10\u20131 000 characters).",
             "maxLength": 1000,
             "minLength": 10,
             "title": "Question",
-            "description": "Clarifying question about the job (10\u20131 000 characters)."
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "question"
         ],
-        "title": "QuestionCreate"
+        "title": "QuestionCreate",
+        "type": "object"
       },
       "RFPRequest": {
         "properties": {
@@ -2567,32 +664,28 @@
                 "type": "null"
               }
             ],
-            "title": "Clarification Answers",
-            "description": "Answers to the clarifying_questions returned by the analysis endpoint. Keys are the questions (verbatim), values are the homeowner's answers."
+            "description": "Answers to the clarifying_questions returned by the analysis endpoint. Keys are the questions (verbatim), values are the homeowner's answers.",
+            "title": "Clarification Answers"
           }
         },
-        "type": "object",
-        "title": "RFPRequest"
+        "title": "RFPRequest",
+        "type": "object"
       },
       "RefundRequest": {
         "properties": {
           "reason": {
-            "type": "string",
+            "default": "",
+            "description": "Reason for the refund (dispute, cancellation, etc.).",
             "maxLength": 500,
             "title": "Reason",
-            "description": "Reason for the refund (dispute, cancellation, etc.).",
-            "default": ""
+            "type": "string"
           }
         },
-        "type": "object",
-        "title": "RefundRequest"
+        "title": "RefundRequest",
+        "type": "object"
       },
       "RegisterResponse": {
         "properties": {
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
           "access_token": {
             "anyOf": [
               {
@@ -2604,70 +697,47 @@
             ],
             "title": "Access Token"
           },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
           "token_type": {
-            "type": "string",
+            "default": "bearer",
             "title": "Token Type",
-            "default": "bearer"
+            "type": "string"
           },
           "user_id": {
-            "type": "string",
-            "title": "User Id"
+            "title": "User Id",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "status",
           "user_id"
         ],
-        "title": "RegisterResponse"
+        "title": "RegisterResponse",
+        "type": "object"
       },
       "ReleaseRequest": {
         "properties": {
           "note": {
-            "type": "string",
+            "default": "",
+            "description": "Optional note from the homeowner approving the work.",
             "maxLength": 500,
             "title": "Note",
-            "description": "Optional note from the homeowner approving the work.",
-            "default": ""
+            "type": "string"
           }
         },
-        "type": "object",
-        "title": "ReleaseRequest"
+        "title": "ReleaseRequest",
+        "type": "object"
       },
       "ReviewCreate": {
         "properties": {
-          "job_id": {
-            "type": "string",
-            "title": "Job Id"
-          },
-          "contractor_id": {
-            "type": "string",
-            "title": "Contractor Id",
-            "description": "UUID of the contractor being reviewed"
-          },
-          "rating_cleanliness": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Rating Cleanliness"
-          },
-          "rating_communication": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Rating Communication"
-          },
-          "rating_quality": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Rating Quality"
-          },
           "comment": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 5000
+                "maxLength": 5000,
+                "type": "string"
               },
               {
                 "type": "null"
@@ -2675,21 +745,47 @@
             ],
             "title": "Comment"
           },
+          "contractor_id": {
+            "description": "UUID of the contractor being reviewed",
+            "title": "Contractor Id",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
           "private_feedback": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "maxLength": 2000,
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Private Feedback",
-            "description": "Admin-only. Written to DB but never returned to callers."
+            "description": "Admin-only. Written to DB but never returned to callers.",
+            "title": "Private Feedback"
+          },
+          "rating_cleanliness": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating Cleanliness",
+            "type": "integer"
+          },
+          "rating_communication": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating Communication",
+            "type": "integer"
+          },
+          "rating_quality": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating Quality",
+            "type": "integer"
           }
         },
-        "type": "object",
         "required": [
           "job_id",
           "contractor_id",
@@ -2697,72 +793,58 @@
           "rating_communication",
           "rating_quality"
         ],
-        "title": "ReviewCreate"
+        "title": "ReviewCreate",
+        "type": "object"
       },
       "TokenResponse": {
         "properties": {
           "access_token": {
-            "type": "string",
-            "title": "Access Token"
+            "title": "Access Token",
+            "type": "string"
           },
           "token_type": {
-            "type": "string",
+            "default": "bearer",
             "title": "Token Type",
-            "default": "bearer"
+            "type": "string"
           },
           "user_id": {
-            "type": "string",
-            "title": "User Id"
+            "title": "User Id",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "access_token",
           "user_id"
         ],
-        "title": "TokenResponse"
+        "title": "TokenResponse",
+        "type": "object"
       },
       "TokenUsage": {
+        "description": "Actual token counts from Gemini \u2014 use to track cost efficiency.",
         "properties": {
-          "prompt_tokens": {
-            "type": "integer",
-            "title": "Prompt Tokens"
-          },
           "completion_tokens": {
-            "type": "integer",
-            "title": "Completion Tokens"
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
           },
           "total_tokens": {
-            "type": "integer",
-            "title": "Total Tokens"
+            "title": "Total Tokens",
+            "type": "integer"
           }
         },
-        "type": "object",
         "required": [
           "prompt_tokens",
           "completion_tokens",
           "total_tokens"
         ],
         "title": "TokenUsage",
-        "description": "Actual token counts from Gemini \u2014 use to track cost efficiency."
+        "type": "object"
       },
       "UserMetadataResponse": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          },
           "bio": {
             "anyOf": [
               {
@@ -2774,23 +856,37 @@
             ],
             "title": "Bio"
           },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "setup_complete": {
+            "title": "Setup Complete",
+            "type": "boolean"
+          },
           "trade_interests": {
             "items": {
               "type": "string"
             },
-            "type": "array",
-            "title": "Trade Interests"
-          },
-          "setup_complete": {
-            "type": "boolean",
-            "title": "Setup Complete"
+            "title": "Trade Interests",
+            "type": "array"
           },
           "updated_at": {
-            "type": "string",
-            "title": "Updated At"
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
-        "type": "object",
         "required": [
           "id",
           "username",
@@ -2799,21 +895,11 @@
           "setup_complete",
           "updated_at"
         ],
-        "title": "UserMetadataResponse"
+        "title": "UserMetadataResponse",
+        "type": "object"
       },
       "UserMetadataUpdate": {
         "properties": {
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          },
           "bio": {
             "anyOf": [
               {
@@ -2824,6 +910,17 @@
               }
             ],
             "title": "Bio"
+          },
+          "setup_complete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Complete"
           },
           "trade_interests": {
             "anyOf": [
@@ -2839,23 +936,30 @@
             ],
             "title": "Trade Interests"
           },
-          "setup_complete": {
+          "username": {
             "anyOf": [
               {
-                "type": "boolean"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Setup Complete"
+            "title": "Username"
           }
         },
-        "type": "object",
-        "title": "UserMetadataUpdate"
+        "title": "UserMetadataUpdate",
+        "type": "object"
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -2867,54 +971,1988 @@
                 }
               ]
             },
-            "type": "array",
-            "title": "Location"
+            "title": "Location",
+            "type": "array"
           },
           "msg": {
-            "type": "string",
-            "title": "Message"
+            "title": "Message",
+            "type": "string"
           },
           "type": {
-            "type": "string",
-            "title": "Error Type"
+            "title": "Error Type",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "loc",
           "msg",
           "type"
         ],
-        "title": "ValidationError"
+        "title": "ValidationError",
+        "type": "object"
       },
       "ZipLookupResponse": {
         "properties": {
           "city": {
-            "type": "string",
-            "title": "City"
+            "title": "City",
+            "type": "string"
           },
           "state": {
-            "type": "string",
-            "title": "State"
+            "title": "State",
+            "type": "string"
           },
           "zipcode": {
-            "type": "string",
-            "title": "Zipcode"
+            "title": "Zipcode",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "city",
           "state",
           "zipcode"
         ],
-        "title": "ZipLookupResponse"
+        "title": "ZipLookupResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
       "HTTPBearer": {
-        "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Upload photos or video; get a structured Gemini 2.5 Flash assessment.",
+    "title": "Home Repair Analyser",
+    "version": "0.2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/address/autocomplete": {
+      "get": {
+        "operationId": "address_autocomplete_address_autocomplete_get",
+        "parameters": [
+          {
+            "description": "Partial street address",
+            "in": "query",
+            "name": "search",
+            "required": true,
+            "schema": {
+              "description": "Partial street address",
+              "minLength": 3,
+              "title": "Search",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Restrict to ZIP",
+            "in": "query",
+            "name": "postcode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{5}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict to ZIP",
+              "title": "Postcode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AddressSuggestion"
+                  },
+                  "title": "Response Address Autocomplete Address Autocomplete Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Address Autocomplete",
+        "tags": [
+          "address"
+        ]
+      }
+    },
+    "/address/zip": {
+      "get": {
+        "operationId": "zip_lookup_address_zip_get",
+        "parameters": [
+          {
+            "description": "5-digit US ZIP code",
+            "in": "query",
+            "name": "postcode",
+            "required": true,
+            "schema": {
+              "description": "5-digit US ZIP code",
+              "pattern": "^\\d{5}$",
+              "title": "Postcode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZipLookupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Zip Lookup",
+        "tags": [
+          "address"
+        ]
+      }
+    },
+    "/analyse": {
+      "post": {
+        "operationId": "analyse_video_analyse_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyse_video_analyse_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyse Video",
+        "tags": [
+          "analyse"
+        ]
+      }
+    },
+    "/analyse/photos": {
+      "post": {
+        "description": "Submit 1\u20135 photographs. The service assigns each image a triangulation role, preprocesses them for token efficiency, and returns a structured Gemini 2.5 Flash assessment.",
+        "operationId": "analyse_photos_analyse_photos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyse issue from photos",
+        "tags": [
+          "photo_analysis"
+        ]
+      }
+    },
+    "/api/vertical": {
+      "get": {
+        "description": "Return the active vertical configuration for the frontend.\n\nThe frontend uses this to populate category dropdowns and update\ndomain-specific labels (owner, provider, job type, app title).",
+        "operationId": "vertical_config_api_vertical_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Vertical Config",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/auth/config": {
+      "get": {
+        "description": "Return public Supabase config needed for client-side OAuth (safe to expose).",
+        "operationId": "auth_config_auth_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Config",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "description": "Send a password-reset email.  Always returns 202 to avoid leaking whether\nan address is registered (email enumeration defence).",
+        "operationId": "forgot_password_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forgot Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/login/password": {
+      "post": {
+        "description": "Sign in with email + password.",
+        "operationId": "login_with_password_auth_login_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login With Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/magic-link": {
+      "post": {
+        "description": "Send a one-time magic-link / OTP to the given email address.",
+        "operationId": "send_magic_link_auth_magic_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagicLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Magic Link",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "description": "Register a new account with email + password.\n\nSupabase enforces one account per email across all providers \u2014 attempting\nto register with an address already used by Google / magic-link returns a\nclear error rather than creating a duplicate.",
+        "operationId": "register_with_password_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register With Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "description": "Exchange a recovery access_token for a new password and return a fresh session.",
+        "operationId": "reset_password_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/verify": {
+      "post": {
+        "description": "Exchange an email OTP token for a Supabase session (access_token).",
+        "operationId": "verify_otp_auth_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OTPVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Otp",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/config/feature-flags": {
+      "get": {
+        "description": "Return the status of optional features.\n\nFrontend can use this to gracefully degrade (e.g., hide push-notification buttons\nif push is disabled) without making extra API calls.",
+        "operationId": "feature_flags_config_feature_flags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Feature Flags",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/contractors/me/documents": {
+      "get": {
+        "description": "List all documents uploaded by the authenticated contractor (all statuses).",
+        "operationId": "list_own_documents_contractors_me_documents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Own Documents",
+        "tags": [
+          "contractor-documents"
+        ]
+      },
+      "post": {
+        "description": "Upload an official document. AI field extraction runs immediately.\n\nOn success the record is returned with status 'verified' (all required\nfields extracted) or 'needs_review' (poor scan / wrong document type).",
+        "operationId": "upload_document_contractors_me_documents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Document",
+        "tags": [
+          "contractor-documents"
+        ]
+      }
+    },
+    "/contractors/me/documents/{doc_id}": {
+      "delete": {
+        "description": "Soft-delete a document. The record is retained for audit purposes.",
+        "operationId": "delete_document_contractors_me_documents__doc_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "doc_id",
+            "required": true,
+            "schema": {
+              "title": "Doc Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Document",
+        "tags": [
+          "contractor-documents"
+        ]
+      }
+    },
+    "/contractors/{contractor_id}/documents": {
+      "get": {
+        "description": "List verified, non-expired documents for a contractor (public endpoint).\n\nfile_source is excluded to avoid returning raw document bytes to third parties.",
+        "operationId": "list_contractor_documents_contractors__contractor_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contractor_id",
+            "required": true,
+            "schema": {
+              "title": "Contractor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Contractor Documents",
+        "tags": [
+          "contractor-documents"
+        ]
+      }
+    },
+    "/escrow/config": {
+      "get": {
+        "description": "Return the Stripe publishable key for frontend SDK initialisation.\n\nThe frontend should call this once on mount to get the key it needs to\nload Stripe.js and render the Payment Element.",
+        "operationId": "escrow_config_escrow_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Escrow Config",
+        "tags": [
+          "escrow"
+        ]
+      }
+    },
+    "/jobs/{job_id}/contractors/matches": {
+      "get": {
+        "description": "Return contractors best matched to this job.\n\nRanking uses cosine similarity between the job's RFP text and each\ncontractor's stored profile embedding.  If no embeddings exist yet (new\nplatform with no contractors who have called ``/me/contractor/embed-profile``),\nthe endpoint falls back to a simple activity-category filter.\n\nResponse fields per contractor:\n- All ``contractors`` table columns\n- ``contractor_details``: nested details object (may be null)\n- ``match_score``: float 0\u20131 from embedding similarity, or null for fallback rows\n\nQuery params:\n- ``limit`` (int, default 10): max contractors to return",
+        "operationId": "match_contractors_for_job_jobs__job_id__contractors_matches_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Match Contractors For Job",
+        "tags": [
+          "contractor-matching"
+        ]
+      }
+    },
+    "/jobs/{job_id}/escrow": {
+      "get": {
+        "description": "Return current escrow status for a job.\n\nAccessible to both the homeowner and the job's contractor.\n\nResponse:\n- job_escrow_status:  current status on the jobs table\n- transaction:        full escrow_transactions record (or null if not yet initiated)",
+        "operationId": "get_escrow_status_jobs__job_id__escrow_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Escrow Status",
+        "tags": [
+          "escrow"
+        ]
+      }
+    },
+    "/jobs/{job_id}/escrow/initiate": {
+      "post": {
+        "description": "Initiate escrow payment for an awarded job.\n\nThe job must be in 'awarded' status (a bid has been accepted).\nReturns a Stripe client_secret \u2014 pass this to the Stripe Payment Element\non the frontend to collect and confirm the payment.\n\nResponse:\n- client_secret:          for Stripe.js confirmPayment()\n- provider_ref:           PaymentIntent ID (store for your records)\n- amount_pence:           amount charged (from the accepted bid)\n- currency:               always \"gbp\"\n- stripe_publishable_key: convenience \u2014 same as GET /escrow/config",
+        "operationId": "initiate_escrow_jobs__job_id__escrow_initiate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Initiate Escrow",
+        "tags": [
+          "escrow"
+        ]
+      }
+    },
+    "/jobs/{job_id}/escrow/refund": {
+      "post": {
+        "description": "Refund held funds to the homeowner.\n\nOnly valid while escrow_status is 'held'.  Once released, refunds must be\nhandled manually through the payment provider dashboard.\n\nResponse:\n- status:    \"refunded\"\n- refund_id: Stripe Refund ID",
+        "operationId": "refund_escrow_jobs__job_id__escrow_refund_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Refund Escrow",
+        "tags": [
+          "escrow"
+        ]
+      }
+    },
+    "/jobs/{job_id}/escrow/release": {
+      "post": {
+        "description": "Release held funds to the contractor.\n\nCan only be called by the homeowner when escrow_status is 'held'.\nIf the contractor has not linked a Stripe Connect account, payout_pending\nwill be true \u2014 the platform admin must complete the transfer manually.\n\nResponse:\n- status:         \"released\"\n- transfer_id:    Stripe Transfer ID (null if payout_pending)\n- payout_pending: true if contractor has no connected Stripe account",
+        "operationId": "release_escrow_jobs__job_id__escrow_release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Release Escrow",
+        "tags": [
+          "escrow"
+        ]
+      }
+    },
+    "/jobs/{job_id}/milestones": {
+      "get": {
+        "description": "List milestones with their photo evidence.\n\nAccessible to the job owner and the job's accepted contractor.",
+        "operationId": "list_milestones_jobs__job_id__milestones_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Milestones",
+        "tags": [
+          "milestones"
+        ]
+      },
+      "post": {
+        "description": "Homeowner defines milestones for a job.\n\nCan be called on jobs with status 'awarded' or 'in_progress'.\nExisting milestones are not deleted \u2014 new ones are appended.",
+        "operationId": "create_milestones_jobs__job_id__milestones_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MilestoneBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Milestones",
+        "tags": [
+          "milestones"
+        ]
+      }
+    },
+    "/jobs/{job_id}/milestones/{milestone_id}": {
+      "patch": {
+        "description": "Job owner approves or rejects a submitted milestone.\n\nOnly milestones in 'submitted' status can be actioned.\nApproval sets status \u2192 'approved' and records approved_at.\nRejection sets status \u2192 'rejected'; the contractor can re-submit.",
+        "operationId": "action_milestone_jobs__job_id__milestones__milestone_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "milestone_id",
+            "required": true,
+            "schema": {
+              "title": "Milestone Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MilestoneAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Action Milestone",
+        "tags": [
+          "milestones"
+        ]
+      }
+    },
+    "/jobs/{job_id}/milestones/{milestone_id}/photos": {
+      "post": {
+        "description": "Accepted contractor submits photo evidence for a milestone.\n\nMoves the milestone status from 'pending' or 'rejected' \u2192 'submitted'.\nPass ?analyse=true to also run the TradePhotoAnalyzer and return an\nAI-generated assessment alongside the saved photo record.",
+        "operationId": "submit_photo_jobs__job_id__milestones__milestone_id__photos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "milestone_id",
+            "required": true,
+            "schema": {
+              "title": "Milestone Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Run AI analysis on the photo and include the result.",
+            "in": "query",
+            "name": "analyse",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Run AI analysis on the photo and include the result.",
+              "title": "Analyse",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoSubmit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Photo",
+        "tags": [
+          "milestones"
+        ]
+      }
+    },
+    "/jobs/{job_id}/questions": {
+      "get": {
+        "description": "List questions on a job.\n\n- Job owner: sees all questions, contractor identity anonymised as \"Contractor N\".\n- Contractor: sees only their own questions, identified as \"You\".",
+        "operationId": "list_questions_jobs__job_id__questions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Questions",
+        "tags": [
+          "questions"
+        ]
+      },
+      "post": {
+        "description": "Contractor submits an anonymous clarifying question on a job.",
+        "operationId": "ask_question_jobs__job_id__questions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask Question",
+        "tags": [
+          "questions"
+        ]
+      }
+    },
+    "/jobs/{job_id}/questions/{question_id}": {
+      "patch": {
+        "description": "Job owner answers a contractor's question.",
+        "operationId": "answer_question_jobs__job_id__questions__question_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Answer Question",
+        "tags": [
+          "questions"
+        ]
+      }
+    },
+    "/jobs/{job_id}/rfp": {
+      "post": {
+        "description": "Generate (or regenerate) the RFP for a job.\n\nRequires ``analysis_result`` to be stored on the job.  Call this after the\nhomeowner has answered any clarifying questions from the initial analysis.\n\nThe response includes:\n- The full RFP document (scope, trade category, permit flags, etc.)\n- A private cost estimate range in GBP pence\n- Permit / planning considerations\n\nThe RFP and cost fields are also written back to the job row.",
+        "operationId": "generate_rfp_jobs__job_id__rfp_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RFPRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Rfp",
+        "tags": [
+          "rfp"
+        ]
+      }
+    },
+    "/me/contractor/connect-onboard": {
+      "post": {
+        "description": "Start or resume Stripe Connect onboarding for a contractor.\n\nReturns a single-use URL valid for ~5 minutes.  Redirect the contractor\nto this URL immediately \u2014 do not cache it.\n\nResponse:\n- onboarding_url:  redirect the contractor here\n- account_id:      Stripe account ID (store for reference; also saved server-side)\n- expires_at:      Unix timestamp when the link expires",
+        "operationId": "connect_onboard_me_contractor_connect_onboard_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectOnboardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connect Onboard",
+        "tags": [
+          "contractor-connect"
+        ]
+      }
+    },
+    "/me/contractor/connect-status": {
+      "get": {
+        "description": "Return the contractor's Stripe Connect account status.\n\nResponse:\n- connected:         false if no account linked yet\n- charges_enabled:   true when the account can accept payments\n- payouts_enabled:   true when the account can receive payouts\n- details_submitted: true when onboarding form is complete\n- account_id:        Stripe account ID (null if not connected)",
+        "operationId": "connect_status_me_contractor_connect_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connect Status",
+        "tags": [
+          "contractor-connect"
+        ]
+      }
+    },
+    "/me/contractor/embed-profile": {
+      "post": {
+        "description": "Regenerate the embedding for the calling contractor's profile.\n\nThis should be called after any change to business details \u2014 the embedding\npowers the semantic matching shown to homeowners when they request bids.\n\nResponse:\n- ``profile_text``: the plain-text summary that was embedded\n- ``embedding_dimensions``: 768 (confirms model version)",
+        "operationId": "embed_my_profile_me_contractor_embed_profile_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Embed My Profile",
+        "tags": [
+          "contractor-matching"
+        ]
+      }
+    },
+    "/me/metadata": {
+      "get": {
+        "operationId": "get_metadata_me_metadata_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMetadataResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Metadata",
+        "tags": [
+          "user_metadata"
+        ]
+      },
+      "patch": {
+        "operationId": "update_metadata_me_metadata_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserMetadataUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMetadataResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Metadata",
+        "tags": [
+          "user_metadata"
+        ]
+      }
+    },
+    "/me/profile": {
+      "get": {
+        "operationId": "get_profile_me_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Profile",
+        "tags": [
+          "profiles"
+        ]
+      },
+      "patch": {
+        "operationId": "update_profile_me_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Profile",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/notifications/subscribe": {
+      "delete": {
+        "description": "Remove a push subscription endpoint for the authenticated user.",
+        "operationId": "unsubscribe_notifications_subscribe_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscriptionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unsubscribe",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "post": {
+        "description": "Register a Web Push subscription for the authenticated user.\n\nUpserts on (user_id, endpoint) \u2014 safe to call again after a page refresh\nto keep the stored subscription fresh.",
+        "operationId": "subscribe_notifications_subscribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscriptionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Subscribe",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/vapid-public-key": {
+      "get": {
+        "description": "Return the VAPID application server public key.\n\nThe frontend passes this as the `applicationServerKey` when calling\nPushManager.subscribe().  The key is not secret.",
+        "operationId": "vapid_public_key_notifications_vapid_public_key_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Vapid Public Key",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/reviews": {
+      "post": {
+        "description": "Submit a review for a contractor on a completed job.",
+        "operationId": "submit_review_reviews_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Review",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/contractor/{contractor_id}": {
+      "get": {
+        "description": "Return all reviews for a contractor, newest first.",
+        "operationId": "list_contractor_reviews_reviews_contractor__contractor_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contractor_id",
+            "required": true,
+            "schema": {
+              "title": "Contractor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Contractor Reviews",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/summary/{contractor_id}": {
+      "get": {
+        "description": "Return aggregated rating averages for a contractor (public, no auth).",
+        "operationId": "contractor_review_summary_reviews_summary__contractor_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contractor_id",
+            "required": true,
+            "schema": {
+              "title": "Contractor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contractor Review Summary",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/{review_id}": {
+      "delete": {
+        "description": "Soft-delete a review (reviewer only).",
+        "operationId": "delete_review_reviews__review_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Review",
+        "tags": [
+          "reviews"
+        ]
       }
     }
   }
