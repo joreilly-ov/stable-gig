@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator
 # [SECURITY: code-review] Shared rate limiter — same instance as auth endpoints.
 from main import limiter
 
+from app.database import get_supabase_admin
 from app.dependencies import get_current_user
 from app.services import photo_analyzer
 from app.services.vertical_config import get_vertical_config
@@ -104,6 +105,36 @@ class PhotoAnalysisResponse(BaseModel):
     token_usage_estimate: TokenUsage = Field(
         description="Actual Gemini token counts — zero when the API does not return them.",
     )
+    job_id: str | None = Field(
+        default=None,
+        description="UUID of the draft job row created server-side. None if job creation failed.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _create_draft_job(user_id: str, description: str, activity: str, analysis_result: dict) -> str | None:
+    """Insert a draft job row and return its UUID. Returns None on any failure so callers degrade gracefully."""
+    try:
+        res = get_supabase_admin().table("jobs").insert({
+            "user_id":         user_id,
+            "title":           description[:200],
+            "description":     description,
+            "activity":        activity,
+            "postcode":        "TBC",
+            "status":          "draft",
+            "analysis_result": analysis_result,
+        }).execute()
+        if res.data:
+            job_id = res.data[0]["id"]
+            log.info("draft_job_created", extra={"user_id": user_id, "job_id": job_id})
+            return job_id
+        log.warning("draft_job_no_data", extra={"user_id": user_id})
+    except Exception as exc:
+        log.warning("draft_job_failed", extra={"user_id": user_id, "error": str(exc)})
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -180,5 +211,8 @@ async def analyse_photos(
 
     # Validate urgency_score is within bounds (Gemini occasionally goes off-range)
     result["urgency_score"] = max(1, min(10, int(result.get("urgency_score", 1))))
+
+    activity = body.trade_category or "general"
+    result["job_id"] = _create_draft_job(user_id, body.description, activity, result)
 
     return result
