@@ -1,5 +1,5 @@
 tests/test_address_router.py: 12
-tests/test_analyse_router.py: 44
+tests/test_analyse_router.py: 48
 tests/test_auth_router.py: 22
 tests/test_config.py: 5
 tests/test_contractor_connect_router.py: 17
@@ -16,7 +16,7 @@ tests/test_jobs_bids_router.py: 32
 tests/test_main.py: 7
 tests/test_milestones_router.py: 17
 tests/test_notifications_router.py: 8
-tests/test_photo_analysis_router.py: 30
+tests/test_photo_analysis_router.py: 32
 tests/test_photo_analyzer_service.py: 32
 tests/test_profiles_router.py: 8
 tests/test_push_service.py: 9

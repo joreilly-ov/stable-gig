@@ -391,6 +391,18 @@
             "title": "Image Feedback",
             "type": "array"
           },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID of the draft job row created server-side. None if job creation failed.",
+            "title": "Job Id"
+          },
           "likely_issue": {
             "description": "Concise one-sentence diagnosis. Set to 'INSUFFICIENT_EVIDENCE' when the images do not provide enough detail for a confident diagnosis.",
             "title": "Likely Issue",
