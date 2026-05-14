@@ -65,6 +65,18 @@ class TestVerifyToken:
         assert exc_info.value.status_code == 401
         assert "Invalid or expired token" in exc_info.value.detail
 
+    def test_raises_503_when_supabase_anon_key_invalid(self):
+        """A bad SUPABASE_ANON_KEY returns 503 (server fault), not 401."""
+        sb = MagicMock()
+        sb.auth.get_user.side_effect = Exception("Invalid API key")
+
+        with patch("app.dependencies.get_supabase", return_value=sb):
+            with pytest.raises(HTTPException) as exc_info:
+                _verify_token("any-token")
+
+        assert exc_info.value.status_code == 503
+        assert "misconfigured" in exc_info.value.detail
+
 
 # ---------------------------------------------------------------------------
 # get_current_user (async dependency)

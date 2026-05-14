@@ -26,7 +26,7 @@ import logging
 from datetime import datetime, timezone
 
 from app.database import get_supabase_admin
-from app.services.payment_provider import get_escrow_provider
+from app.services.payment_provider import get_escrow_provider, get_crypto_provider
 
 log = logging.getLogger(__name__)
 
@@ -75,6 +75,19 @@ def _get_contractor_stripe_account(db, contractor_id: str) -> str | None:
     )
     if res.data:
         return res.data[0].get("stripe_account_id") or None
+    return None
+
+
+def _get_contractor_crypto_wallet(db, contractor_id: str) -> str | None:
+    res = (
+        db.table("contractors")
+        .select("crypto_wallet_address")
+        .eq("id", contractor_id)
+        .limit(1)
+        .execute()
+    )
+    if res.data:
+        return res.data[0].get("crypto_wallet_address") or None
     return None
 
 
@@ -218,7 +231,8 @@ async def release(job_id: str, user_id: str, note: str = "") -> dict:
         raise ValueError("No held escrow transaction found for this job")
 
     stripe_account_id = _get_contractor_stripe_account(db, tx["contractor_id"])
-    transfer_id = None
+    transfer_id    = None
+    crypto_ref     = None
     payout_pending = False
 
     if stripe_account_id:
@@ -231,26 +245,52 @@ async def release(job_id: str, user_id: str, note: str = "") -> dict:
         )
         transfer_id = result.transfer_id
     else:
-        payout_pending = True
-        log.warning(
-            "escrow_release_no_stripe_account",
-            extra={"job_id": job_id, "contractor_id": tx["contractor_id"]},
-        )
+        wallet_address = _get_contractor_crypto_wallet(db, tx["contractor_id"])
+        if wallet_address:
+            crypto_provider = get_crypto_provider()
+            if crypto_provider:
+                # TODO: add GBP→USD FX conversion before going live;
+                # for MVP, pence / 100 is used as the USDC dollar amount.
+                amount_usdc = f"{tx['amount_pence'] / 100:.2f}"
+                result = await crypto_provider.transfer_usdc_to_wallet(
+                    wallet_address=wallet_address,
+                    amount_usdc=amount_usdc,
+                    idempotency_key=str(tx["id"]),
+                )
+                crypto_ref = result.payout_id
+                log.info(
+                    "escrow_released_crypto",
+                    extra={"job_id": job_id, "payout_id": crypto_ref, "amount_usdc": amount_usdc},
+                )
+            else:
+                # Circle not configured — flag for manual processing
+                payout_pending = True
+                log.warning(
+                    "escrow_release_circle_not_configured",
+                    extra={"job_id": job_id, "contractor_id": tx["contractor_id"]},
+                )
+        else:
+            payout_pending = True
+            log.warning(
+                "escrow_release_no_payout_method",
+                extra={"job_id": job_id, "contractor_id": tx["contractor_id"]},
+            )
 
     db.table("escrow_transactions").update({
         "status":                 "released",
         "released_at":            _now_iso(),
         "release_note":           note or None,
-        "provider_transfer_ref":  transfer_id,
+        "provider_transfer_ref":  transfer_id or crypto_ref,
     }).eq("id", tx["id"]).execute()
 
     db.table("jobs").update({"escrow_status": "funds_released"}).eq("id", job_id).execute()
 
-    log.info("escrow_released", extra={"job_id": job_id, "transfer_id": transfer_id})
+    log.info("escrow_released", extra={"job_id": job_id, "transfer_id": transfer_id, "crypto_ref": crypto_ref})
 
     return {
         "status":         "released",
         "transfer_id":    transfer_id,
+        "crypto_ref":     crypto_ref,
         "payout_pending": payout_pending,
     }
 

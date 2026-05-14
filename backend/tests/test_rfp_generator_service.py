@@ -299,6 +299,6 @@ import asyncio
 
 
 def _run_generate(analysis, *, clarification_answers=None, postcode=""):
-    return asyncio.get_event_loop().run_until_complete(
+    return asyncio.run(
         generate(analysis, clarification_answers=clarification_answers, postcode=postcode)
     )

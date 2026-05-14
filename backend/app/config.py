@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     vapid_public_key:    str = ""  # raw base64url EC public key (sent to browsers)
     vapid_claims_email:  str = ""  # e.g. "mailto:admin@example.com"
 
+    # Circle API — USDC crypto payouts (optional — falls back to payout_pending if not set)
+    circle_api_key:   str = ""  # API key from Circle Developer Console
+    circle_wallet_id: str = ""  # Source wallet ID in Circle (holds the USDC balance)
+
     # Vertical — controls domain labels, categories, and AI prompts
     # Options: "home_repair" (default) | "vehicle_damage"
     vertical: str = "home_repair"

@@ -70,6 +70,12 @@ class AccountStatusResult:
     details_submitted: bool
 
 
+@dataclass
+class CryptoTransferResult:
+    payout_id: str    # Circle payout UUID
+    status:    str    # "pending" | "complete" | "failed"
+
+
 # ---------------------------------------------------------------------------
 # Abstract base
 # ---------------------------------------------------------------------------
@@ -271,6 +277,89 @@ class StripeEscrowProvider(EscrowProvider):
 
 
 # ---------------------------------------------------------------------------
+# Circle crypto payout provider
+# ---------------------------------------------------------------------------
+
+class CircleCryptoProvider:
+    """Circle API — push USDC to an on-chain wallet address on Base.
+
+    Requires:
+      CIRCLE_API_KEY    — from Circle Developer Console → API Keys
+      CIRCLE_WALLET_ID  — the Circle wallet that holds the USDC balance
+
+    Circle docs: https://developers.circle.com/reference/payouts-create
+    """
+
+    _BASE_URL = "https://api.circle.com/v1"
+
+    def __init__(self, api_key: str, wallet_id: str) -> None:
+        self._api_key  = api_key
+        self._wallet_id = wallet_id
+
+    async def transfer_usdc_to_wallet(
+        self,
+        wallet_address: str,
+        amount_usdc: str,       # decimal string, e.g. "150.00"
+        idempotency_key: str,   # UUID — prevents double-sends on retry
+    ) -> CryptoTransferResult:
+        """Send USDC on Base to *wallet_address*.
+
+        amount_usdc must be a decimal string ("150.00"), not an integer.
+        idempotency_key must be a UUID; callers should derive it from the
+        escrow transaction ID so retries never double-pay.
+        """
+        import httpx  # already a project dependency
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type":  "application/json",
+        }
+        body = {
+            "idempotencyKey": idempotency_key,
+            "source": {
+                "type": "wallet",
+                "id":   self._wallet_id,
+            },
+            "destination": {
+                "type":    "blockchain",
+                "address": wallet_address,
+                "chain":   "BASE",
+            },
+            "amount": {
+                "amount":   amount_usdc,
+                "currency": "USD",
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{self._BASE_URL}/payouts",
+                headers=headers,
+                json=body,
+            )
+
+        if not resp.is_success:
+            error_body = resp.text[:400]
+            log.error(
+                "circle_payout_failed",
+                extra={"status": resp.status_code, "body": error_body},
+            )
+            raise RuntimeError(
+                f"Circle payout failed ({resp.status_code}): {error_body}"
+            )
+
+        data = resp.json().get("data", {})
+        payout_id = data.get("id", "")
+        status    = data.get("status", "pending")
+
+        log.info(
+            "circle_payout_created",
+            extra={"payout_id": payout_id, "wallet": wallet_address, "amount_usdc": amount_usdc},
+        )
+        return CryptoTransferResult(payout_id=payout_id, status=status)
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
@@ -289,3 +378,17 @@ def get_escrow_provider() -> EscrowProvider:
         secret_key=settings.stripe_secret_key,
         webhook_secret=settings.stripe_webhook_secret,
     )
+
+
+def get_crypto_provider() -> CircleCryptoProvider | None:
+    """Return a CircleCryptoProvider if Circle is configured, else None.
+
+    Returning None (rather than raising) lets the escrow service gracefully
+    fall back to payout_pending when Circle keys are absent.
+    """
+    if settings.circle_api_key and settings.circle_wallet_id:
+        return CircleCryptoProvider(
+            api_key=settings.circle_api_key,
+            wallet_id=settings.circle_wallet_id,
+        )
+    return None

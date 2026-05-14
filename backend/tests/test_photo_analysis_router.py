@@ -55,6 +55,9 @@ _MOCK_RESULT = {
 # Fixtures
 # ---------------------------------------------------------------------------
 
+_FAKE_JOB_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+
 @pytest.fixture(autouse=True)
 def override_auth():
     """Replace the auth dependency with a stub that returns a minimal user object."""
@@ -63,6 +66,16 @@ def override_auth():
     app.dependency_overrides[get_current_user] = lambda: stub_user
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_db():
+    """Patch get_supabase_admin so draft job creation doesn't need a real Supabase connection."""
+    from unittest.mock import MagicMock
+    db = MagicMock()
+    db.table.return_value.insert.return_value.execute.return_value.data = [{"id": _FAKE_JOB_ID}]
+    with patch("app.routers.photo_analysis.get_supabase_admin", return_value=db):
+        yield db
 
 
 @pytest.fixture()
@@ -235,6 +248,21 @@ class TestHappyPath:
         assert "estimated_parts"      in data
         assert "image_feedback"       in data
         assert "token_usage_estimate" in data
+        assert "job_id"               in data
+
+    def test_response_job_id_is_draft_uuid(self, client, mock_analyse):
+        r = client.post("/analyse/photos", json=_VALID_BODY)
+        assert r.json()["job_id"] == _FAKE_JOB_ID
+
+    def test_response_job_id_is_none_when_db_fails(self, client, mock_analyse):
+        """job_id degrades to None when DB insert fails — analysis result still returned."""
+        from unittest.mock import MagicMock
+        db = MagicMock()
+        db.table.return_value.insert.return_value.execute.side_effect = Exception("DB down")
+        with patch("app.routers.photo_analysis.get_supabase_admin", return_value=db):
+            r = client.post("/analyse/photos", json=_VALID_BODY)
+        assert r.status_code == 200
+        assert r.json()["job_id"] is None
 
     def test_urgency_score_is_integer_in_range(self, client, mock_analyse):
         r = client.post("/analyse/photos", json=_VALID_BODY)

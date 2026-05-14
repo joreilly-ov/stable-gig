@@ -61,6 +61,9 @@ async def _run_startup_checks() -> None:
     """Log configuration status for optional services."""
     from app.config import settings
     from app.services.push_service import _vapid_configured
+    from app.database import probe_supabase_anon_key
+
+    probe_supabase_anon_key()
 
     if not _vapid_configured():
         log.error(
@@ -141,6 +144,7 @@ app.add_middleware(  # registered last → outermost layer, wraps _MaxBodySizeMi
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # --- Feature flags endpoint ---
 @app.get("/config/feature-flags", tags=["config"])

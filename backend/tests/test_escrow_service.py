@@ -30,13 +30,19 @@ from app.services.escrow_service import (
     _get_accepted_bid,
     _get_transaction,
     _get_contractor_stripe_account,
+    _get_contractor_crypto_wallet,
     initiate,
     confirm_held,
     release,
     refund,
     get_status,
 )
-from app.services.payment_provider import PaymentIntentResult, RefundResult, TransferResult
+from app.services.payment_provider import (
+    CryptoTransferResult,
+    PaymentIntentResult,
+    RefundResult,
+    TransferResult,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +50,7 @@ from app.services.payment_provider import PaymentIntentResult, RefundResult, Tra
 # ---------------------------------------------------------------------------
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _make_db(*execute_responses):
@@ -191,6 +197,24 @@ class TestGetContractorStripeAccount:
 
 
 # ---------------------------------------------------------------------------
+# _get_contractor_crypto_wallet
+# ---------------------------------------------------------------------------
+
+class TestGetContractorCryptoWallet:
+    def test_returns_wallet_address_when_set(self):
+        db = _make_db([{"crypto_wallet_address": "0xABCDEF"}])
+        assert _get_contractor_crypto_wallet(db, "c-001") == "0xABCDEF"
+
+    def test_returns_none_when_no_row(self):
+        db = _make_db([])
+        assert _get_contractor_crypto_wallet(db, "c-001") is None
+
+    def test_returns_none_when_address_empty_string(self):
+        db = _make_db([{"crypto_wallet_address": ""}])
+        assert _get_contractor_crypto_wallet(db, "c-001") is None
+
+
+# ---------------------------------------------------------------------------
 # initiate()
 # ---------------------------------------------------------------------------
 
@@ -300,14 +324,60 @@ class TestRelease:
         assert result["payout_pending"] is False
 
     def test_happy_path_without_stripe_account_sets_payout_pending(self):
-        # No stripe_account_id → payout_pending flag, no provider call
-        # execute order: get_job, get_tx, get_stripe_account (empty), update tx, update job
-        db = _make_db([_JOB_HELD], [_TX], [], [], [])
+        # No stripe_account_id, no crypto_wallet_address → payout_pending flag
+        # execute order: get_job, get_tx, get_stripe_account (empty),
+        #                get_crypto_wallet (empty), update tx, update job
+        db = _make_db([_JOB_HELD], [_TX], [], [], [], [])
         with patch("app.services.escrow_service.get_supabase_admin", return_value=db):
             result = _run(release("job-001", "owner-001"))
 
         assert result["status"] == "released"
         assert result["transfer_id"] is None
+        assert result["crypto_ref"] is None
+        assert result["payout_pending"] is True
+
+    def test_happy_path_with_crypto_wallet_and_circle_configured(self):
+        # No Stripe account, but crypto_wallet_address set and Circle configured
+        # execute order: get_job, get_tx, get_stripe_account (empty),
+        #                get_crypto_wallet (set), update tx, update job
+        db = _make_db(
+            [_JOB_HELD], [_TX], [],
+            [{"crypto_wallet_address": "0xDEADBEEF"}],
+            [], [],
+        )
+        crypto_provider = MagicMock()
+        crypto_provider.transfer_usdc_to_wallet = AsyncMock(
+            return_value=CryptoTransferResult(payout_id="circle-payout-uuid", status="pending")
+        )
+        with patch("app.services.escrow_service.get_supabase_admin", return_value=db), \
+             patch("app.services.escrow_service.get_crypto_provider", return_value=crypto_provider):
+            result = _run(release("job-001", "owner-001"))
+
+        assert result["status"] == "released"
+        assert result["transfer_id"] is None
+        assert result["crypto_ref"] == "circle-payout-uuid"
+        assert result["payout_pending"] is False
+        crypto_provider.transfer_usdc_to_wallet.assert_called_once_with(
+            wallet_address="0xDEADBEEF",
+            amount_usdc="500.00",   # 50_000 pence / 100
+            idempotency_key=_TX["id"],
+        )
+
+    def test_crypto_wallet_set_but_circle_not_configured_sets_payout_pending(self):
+        # Circle keys absent → get_crypto_provider() returns None → payout_pending
+        # execute order: get_job, get_tx, get_stripe_account (empty),
+        #                get_crypto_wallet (set), update tx, update job
+        db = _make_db(
+            [_JOB_HELD], [_TX], [],
+            [{"crypto_wallet_address": "0xDEADBEEF"}],
+            [], [],
+        )
+        with patch("app.services.escrow_service.get_supabase_admin", return_value=db), \
+             patch("app.services.escrow_service.get_crypto_provider", return_value=None):
+            result = _run(release("job-001", "owner-001"))
+
+        assert result["status"] == "released"
+        assert result["crypto_ref"] is None
         assert result["payout_pending"] is True
 
     def test_raises_permission_error_when_not_owner(self):
