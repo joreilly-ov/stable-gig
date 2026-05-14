@@ -34,6 +34,43 @@
         "title": "AddressSuggestion",
         "type": "object"
       },
+      "BidAction": {
+        "properties": {
+          "action": {
+            "description": "'accept' or 'reject'",
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "BidAction",
+        "type": "object"
+      },
+      "BidCreate": {
+        "properties": {
+          "amount_pence": {
+            "description": "Quote price in pence (e.g. 15000 = \u00a3150.00)",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount Pence",
+            "type": "integer"
+          },
+          "note": {
+            "description": "Scope of work \u2014 what the contractor plans to do.",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_pence",
+          "note"
+        ],
+        "title": "BidCreate",
+        "type": "object"
+      },
       "Body_analyse_video_analyse_post": {
         "properties": {
           "browser_lat": {
@@ -79,6 +116,95 @@
           "file"
         ],
         "title": "Body_analyse_video_analyse_post",
+        "type": "object"
+      },
+      "BreakdownRequest": {
+        "properties": {
+          "description": {
+            "description": "Plain-English description of the repair. Pass the 'description' or 'likely_issue' field directly from the analysis response.",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Description",
+            "type": "string"
+          },
+          "materials_involved": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional \u2014 'materials_involved' from the video analysis response.",
+            "title": "Materials Involved"
+          },
+          "problem_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional \u2014 'problem_type' from the video analysis response.",
+            "title": "Problem Type"
+          },
+          "required_tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional \u2014 'required_tools' from the photo analysis response.",
+            "title": "Required Tools"
+          },
+          "urgency": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional \u2014 'urgency' from the video analysis response.",
+            "title": "Urgency"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "title": "BreakdownRequest",
+        "type": "object"
+      },
+      "BreakdownResponse": {
+        "properties": {
+          "tasks": {
+            "description": "Ordered list of repair tasks from preparation through to sign-off.",
+            "items": {
+              "$ref": "#/components/schemas/RepairTask"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tasks"
+        ],
+        "title": "BreakdownResponse",
         "type": "object"
       },
       "ConnectOnboardRequest": {
@@ -182,6 +308,111 @@
           "quality"
         ],
         "title": "ImageFeedback",
+        "type": "object"
+      },
+      "JobCreate": {
+        "properties": {
+          "activity": {
+            "description": "One of: ['carpentry', 'damp', 'electrical', 'flooring', 'general', 'glazing', 'heating_hvac', 'landscaping', 'painting', 'plumbing', 'roofing', 'structural', 'tiling']",
+            "title": "Activity",
+            "type": "string"
+          },
+          "analysis_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Gemini analysis JSON from POST /analyse or /analyse/photos \u2014 stored verbatim.",
+            "title": "Analysis Result"
+          },
+          "description": {
+            "maxLength": 5000,
+            "minLength": 10,
+            "title": "Description",
+            "type": "string"
+          },
+          "postcode": {
+            "maxLength": 10,
+            "minLength": 2,
+            "title": "Postcode",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "activity",
+          "postcode"
+        ],
+        "title": "JobCreate",
+        "type": "object"
+      },
+      "JobPatch": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "postcode": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postcode"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "New status to transition to.",
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "JobPatch",
         "type": "object"
       },
       "MagicLinkRequest": {
@@ -743,6 +974,38 @@
         "title": "ReleaseRequest",
         "type": "object"
       },
+      "RepairTask": {
+        "properties": {
+          "difficulty_level": {
+            "description": "easy = any competent DIYer; medium = trade experience required; hard = specialist knowledge or certification needed.",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty Level",
+            "type": "string"
+          },
+          "estimated_minutes": {
+            "description": "Realistic on-site duration in minutes (excludes travel and sourcing).",
+            "minimum": 1.0,
+            "title": "Estimated Minutes",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Short imperative phrase describing the task.",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "difficulty_level",
+          "estimated_minutes"
+        ],
+        "title": "RepairTask",
+        "type": "object"
+      },
       "ReviewCreate": {
         "properties": {
           "comment": {
@@ -1188,6 +1451,53 @@
         "summary": "Analyse Video",
         "tags": [
           "analyse"
+        ]
+      }
+    },
+    "/analyse/breakdown": {
+      "post": {
+        "description": "Takes the text output from the video or photo analysis pipeline and asks Gemini to decompose it into a chronological, actionable task list. Each task includes a title, difficulty level, and estimated duration. Pass the analysis response fields directly \u2014 no transformation needed.",
+        "operationId": "breakdown_analyse_breakdown_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BreakdownRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreakdownResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Break a repair description into ordered tasks",
+        "tags": [
+          "task_breakdown"
         ]
       }
     },
@@ -1713,6 +2023,392 @@
         "summary": "Escrow Config",
         "tags": [
           "escrow"
+        ]
+      }
+    },
+    "/jobs": {
+      "get": {
+        "description": "List jobs.\n- Contractors see all 'open' jobs.\n- Homeowners see their own jobs (all statuses).",
+        "operationId": "list_jobs_jobs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Jobs",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "post": {
+        "description": "Create a new job in 'draft' status.",
+        "operationId": "create_job_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}": {
+      "get": {
+        "description": "Get job detail. Owner sees any status; contractors only see open jobs.",
+        "operationId": "get_job_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Job",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "patch": {
+        "description": "Update a job's fields or status.  Only the owner can call this.\n\nStatus transitions allowed by the owner:\n  draft \u2192 open | cancelled\n  open  \u2192 cancelled\n  awarded \u2192 in_progress | cancelled\n  in_progress \u2192 completed | cancelled",
+        "operationId": "update_job_jobs__job_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/bids": {
+      "get": {
+        "description": "List bids on a job.\n- Job owner: sees all bids with contractor info.\n- Contractor: sees only their own bid.",
+        "operationId": "list_bids_jobs__job_id__bids_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Bids",
+        "tags": [
+          "bids"
+        ]
+      },
+      "post": {
+        "description": "Contractor places a bid on an open job.",
+        "operationId": "place_bid_jobs__job_id__bids_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BidCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Place Bid",
+        "tags": [
+          "bids"
+        ]
+      }
+    },
+    "/jobs/{job_id}/bids/{bid_id}": {
+      "delete": {
+        "description": "Soft-delete a bid (only the contractor who placed it can delete).\n\nSoft deletion is allowed only on pending bids (not accepted/rejected).\nThe bid row is marked with deleted_at + deleted_by_user_id for audit trail,\nbut remains in the database for dispute resolution. RLS policies automatically\nexclude soft-deleted rows from user-facing queries.",
+        "operationId": "delete_bid_jobs__job_id__bids__bid_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bid_id",
+            "required": true,
+            "schema": {
+              "title": "Bid Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Bid",
+        "tags": [
+          "bids"
+        ]
+      },
+      "patch": {
+        "description": "Homeowner accepts or rejects a specific bid.\n\nAccepting a bid:\n  - Sets this bid to 'accepted'\n  - Sets all other bids on the job to 'rejected'\n  - Moves the job to 'awarded'",
+        "operationId": "action_bid_jobs__job_id__bids__bid_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bid_id",
+            "required": true,
+            "schema": {
+              "title": "Bid Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BidAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Action Bid",
+        "tags": [
+          "bids"
         ]
       }
     },
@@ -2436,6 +3132,31 @@
         "summary": "Generate Rfp",
         "tags": [
           "rfp"
+        ]
+      }
+    },
+    "/me/bids": {
+      "get": {
+        "description": "Contractor sees all their bids across all jobs, newest first.",
+        "operationId": "my_bids_me_bids_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Bids",
+        "tags": [
+          "bids"
         ]
       }
     },

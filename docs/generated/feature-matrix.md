@@ -7,6 +7,7 @@ Source of truth: FastAPI router table plus discovered pytest call sites.
 | GET | `/address/autocomplete` | `address_autocomplete` | test_address_router.py |
 | GET | `/address/zip` | `zip_lookup` | test_address_router.py |
 | POST | `/analyse` | `analyse_video` | test_analyse_router.py |
+| POST | `/analyse/breakdown` | `breakdown` | test_task_breakdown.py |
 | POST | `/analyse/photos` | `analyse_photos` | test_photo_analysis_router.py |
 | GET | `/api/vertical` | `vertical_config` | (none found) |
 | GET | `/auth/config` | `auth_config` | test_auth_router.py |
@@ -22,6 +23,14 @@ Source of truth: FastAPI router table plus discovered pytest call sites.
 | DELETE | `/contractors/me/documents/{doc_id}` | `delete_document` | (none found) |
 | GET | `/contractors/{contractor_id}/documents` | `list_contractor_documents` | (none found) |
 | GET | `/escrow/config` | `escrow_config` | test_escrow_router.py |
+| GET | `/jobs` | `list_jobs` | test_jobs_bids_router.py |
+| POST | `/jobs` | `create_job` | test_jobs_bids_router.py |
+| GET | `/jobs/{job_id}` | `get_job` | (none found) |
+| PATCH | `/jobs/{job_id}` | `update_job` | (none found) |
+| GET | `/jobs/{job_id}/bids` | `list_bids` | (none found) |
+| POST | `/jobs/{job_id}/bids` | `place_bid` | (none found) |
+| DELETE | `/jobs/{job_id}/bids/{bid_id}` | `delete_bid` | (none found) |
+| PATCH | `/jobs/{job_id}/bids/{bid_id}` | `action_bid` | (none found) |
 | GET | `/jobs/{job_id}/contractors/matches` | `match_contractors_for_job` | (none found) |
 | GET | `/jobs/{job_id}/escrow` | `get_escrow_status` | (none found) |
 | POST | `/jobs/{job_id}/escrow/initiate` | `initiate_escrow` | (none found) |
@@ -35,6 +44,7 @@ Source of truth: FastAPI router table plus discovered pytest call sites.
 | POST | `/jobs/{job_id}/questions` | `ask_question` | (none found) |
 | PATCH | `/jobs/{job_id}/questions/{question_id}` | `answer_question` | (none found) |
 | POST | `/jobs/{job_id}/rfp` | `generate_rfp` | (none found) |
+| GET | `/me/bids` | `my_bids` | test_jobs_bids_router.py |
 | POST | `/me/contractor/connect-onboard` | `connect_onboard` | test_contractor_connect_router.py |
 | GET | `/me/contractor/connect-status` | `connect_status` | test_contractor_connect_router.py |
 | POST | `/me/contractor/embed-profile` | `embed_my_profile` | test_contractor_matching_router.py |
