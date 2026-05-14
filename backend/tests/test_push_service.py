@@ -109,7 +109,7 @@ class TestVapidConfigured:
 
 class TestNotifyContractors:
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_skips_when_vapid_not_configured(self):
         # Reset the "warned once" flag for a clean test
