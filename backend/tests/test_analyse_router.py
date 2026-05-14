@@ -183,6 +183,18 @@ def _post(test_client, file_bytes=_MP4_BYTES, content_type="video/mp4",
     )
 
 
+_FAKE_JOB_ID = "11111111-2222-3333-4444-555555555555"
+
+
+def _make_db_mock():
+    """Return a MagicMock supabase client pre-configured to return a fake job row."""
+    mock_sb = MagicMock()
+    mock_sb.table.return_value.insert.return_value.execute.return_value.data = [
+        {"id": _FAKE_JOB_ID}
+    ]
+    return mock_sb
+
+
 def _patches(gemini_result=None, meta=None, raises=None, supabase=None):
     """Return an ExitStack with all external calls patched."""
     if gemini_result is None:
@@ -199,9 +211,8 @@ def _patches(gemini_result=None, meta=None, raises=None, supabase=None):
         patch("app.services.video_meta.extract_video_metadata", return_value=meta or _META)
     )
     mock_log = stack.enter_context(patch("app.services.usage_logger.log_usage"))
-    mock_sb = supabase if supabase is not None else MagicMock()
-    # _store_result now uses get_supabase_admin (service-role key) so it can
-    # bypass RLS when writing on behalf of the authenticated user.
+    mock_sb = supabase if supabase is not None else _make_db_mock()
+    # _store_result and _create_draft_job both use get_supabase_admin (service-role key).
     stack.enter_context(patch("app.database.get_supabase_admin", return_value=mock_sb))
     # stash the mocks as attributes for assertions
     stack.mock_log = mock_log   # type: ignore[attr-defined]
@@ -261,12 +272,19 @@ class TestHappyPath:
         assert "_token_usage" not in resp.json()
 
     def test_authenticated_calls_store_result(self, authed_client):
-        mock_sb = MagicMock()
+        mock_sb = _make_db_mock()
         with _patches(supabase=mock_sb):
             resp = _post(authed_client)
         assert resp.status_code == 200
-        mock_sb.table.assert_called_with("videos")
-        mock_sb.table.return_value.insert.assert_called_once()
+        table_names = [c.args[0] for c in mock_sb.table.call_args_list]
+        assert "jobs"   in table_names   # draft job created synchronously
+        assert "videos" in table_names   # analysis result stored via background task
+
+    def test_authenticated_video_response_includes_job_id(self, authed_client):
+        with _patches():
+            resp = _post(authed_client)
+        assert resp.status_code == 200
+        assert resp.json()["job_id"] == _FAKE_JOB_ID
 
     def test_unauthenticated_does_not_call_store_result(self, client):
         mock_sb = MagicMock()
@@ -274,6 +292,12 @@ class TestHappyPath:
             resp = _post(client)
         assert resp.status_code == 200
         mock_sb.table.return_value.insert.assert_not_called()
+
+    def test_unauthenticated_video_response_has_no_job_id(self, client):
+        with _patches():
+            resp = _post(client)
+        assert resp.status_code == 200
+        assert "job_id" not in resp.json()
 
     def test_log_usage_called_with_correct_args(self, client):
         with _patches() as stack:
@@ -384,7 +408,7 @@ class TestAssertImageMagic:
 # Image upload helpers
 # ---------------------------------------------------------------------------
 
-def _patches_image(photo_result=None, raises=None):
+def _patches_image(photo_result=None, raises=None, supabase=None):
     """Return an ExitStack with photo_analyzer.analyse patched."""
     if photo_result is None:
         photo_result = dict(_PHOTO_RESULT)
@@ -397,7 +421,10 @@ def _patches_image(photo_result=None, raises=None):
     stack = ExitStack()
     stack.enter_context(patch("app.services.photo_analyzer.analyse", side_effect=_photo_fn))
     mock_log = stack.enter_context(patch("app.services.usage_logger.log_usage"))
+    mock_sb = supabase if supabase is not None else _make_db_mock()
+    stack.enter_context(patch("app.database.get_supabase_admin", return_value=mock_sb))
     stack.mock_log = mock_log  # type: ignore[attr-defined]
+    stack.mock_sb = mock_sb    # type: ignore[attr-defined]
     return stack
 
 
@@ -520,3 +547,18 @@ class TestImageUpload:
             completion_tokens=40,
             total_tokens=120,
         )
+
+    def test_authenticated_image_creates_draft_job(self, authed_client):
+        mock_sb = _make_db_mock()
+        with _patches_image(supabase=mock_sb):
+            resp = _post_image(authed_client)
+        assert resp.status_code == 200
+        assert resp.json()["job_id"] == _FAKE_JOB_ID
+        table_names = [c.args[0] for c in mock_sb.table.call_args_list]
+        assert "jobs" in table_names
+
+    def test_unauthenticated_image_has_no_job_id(self, client):
+        with _patches_image():
+            resp = _post_image(client)
+        assert resp.status_code == 200
+        assert "job_id" not in resp.json()

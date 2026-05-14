@@ -173,6 +173,10 @@ async def analyse_video(
         )
 
         log.info("image_analysis_complete", extra={"user_id": user_id, "upload_filename": file.filename})
+
+        if user is not None:
+            result["job_id"] = _create_draft_job(user_id, desc, result)
+
         return result
 
     # --- Video branch (original flow) ------------------------------------
@@ -209,9 +213,11 @@ async def analyse_video(
             total_tokens=token_usage.get("total_tokens", 0),
         )
 
-        # Persist when authenticated — run in background so storage latency
-        # does not delay the response the user is waiting for.
+        # Persist when authenticated — create a draft job synchronously so job_id
+        # is available in the response, then store to the videos table in the background.
         if user is not None:
+            job_desc = result.get("description") or "Video analysis"
+            result["job_id"] = _create_draft_job(str(user.id), job_desc, result)
             background_tasks.add_task(
                 _store_result, str(user.id), file.filename or "upload", result
             )
@@ -240,6 +246,29 @@ async def analyse_video(
         )
     finally:
         os.unlink(tmp_path)
+
+
+def _create_draft_job(user_id: str, description: str, analysis_result: dict) -> str | None:
+    """Insert a draft job row and return its UUID. Returns None on any failure so callers degrade gracefully."""
+    try:
+        from app.database import get_supabase_admin
+        res = get_supabase_admin().table("jobs").insert({
+            "user_id":         user_id,
+            "title":           description[:200],
+            "description":     description,
+            "activity":        "general",
+            "postcode":        "TBC",
+            "status":          "draft",
+            "analysis_result": analysis_result,
+        }).execute()
+        if res.data:
+            job_id = res.data[0]["id"]
+            log.info("draft_job_created", extra={"user_id": user_id, "job_id": job_id})
+            return job_id
+        log.warning("draft_job_no_data", extra={"user_id": user_id})
+    except Exception as exc:
+        log.warning("draft_job_failed", extra={"user_id": user_id, "error": str(exc)})
+    return None
 
 
 def _store_result(user_id: str, filename: str, result: dict) -> None:
