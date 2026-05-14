@@ -14,12 +14,20 @@ on:
       - scripts/**
       - .github/workflows/docs-from-code.yml
 
+permissions:
+  contents: write
+
 jobs:
   docs-freshness:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Check out the real branch (not the detached merge-commit HEAD that
+          # pull_request events produce) so we can push the commit back.
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -40,5 +48,11 @@ jobs:
         shell: pwsh
         run: ./scripts/generate_docs.ps1 -SkipHtml -SkipJunit
 
-      - name: Fail if generated docs are stale
-        run: git diff --exit-code -- docs/generated
+      - name: Commit regenerated docs if stale
+        run: |
+          git diff --quiet -- docs/generated && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/generated
+          git commit -m "chore: regenerate docs/generated [skip ci]"
+          git push
