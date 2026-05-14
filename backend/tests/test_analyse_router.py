@@ -1,9 +1,10 @@
-"""Integration tests for POST /analyse  (video upload endpoint).
+"""Integration tests for POST /analyse  (video and image upload endpoint).
 
 A minimal FastAPI app is used to avoid the main.py circular-import issue.
 
 All external calls are mocked:
   - app.services.gemini.analyse        (Gemini SDK — runs in to_thread)
+  - app.services.photo_analyzer.analyse (photo branch)
   - app.services.video_meta.extract_video_metadata
   - app.services.usage_logger.log_usage
   - app.database.get_supabase_admin    (for _store_result — service role bypasses RLS)
@@ -21,8 +22,15 @@ Magic-byte validation (_assert_video_magic unit tests):
   - Header too small → 400
   - Unrecognised bytes → 400
 
-Endpoint:
-  - Non-video Content-Type → 400
+Magic-byte validation (_assert_image_magic unit tests):
+  - JPEG (FF D8 FF)
+  - PNG (8-byte sig)
+  - WebP (RIFF....WEBP)
+  - Header too small → 400
+  - Unrecognised bytes → 400
+
+Endpoint — video:
+  - Unsupported Content-Type → 400
   - Invalid magic bytes → 400
   - File exceeds size limit → 413
   - Happy path unauthenticated → 200, video_metadata in body
@@ -34,6 +42,19 @@ Endpoint:
   - ValueError from gemini.analyse → 422
   - quota/rate-limit error string → 429
   - Generic exception → 500, no detail leak
+
+Endpoint — image:
+  - JPEG upload → 200, photo analysis result
+  - PNG upload → 200
+  - WebP upload → 200
+  - description form field forwarded when ≥10 chars
+  - short/missing description uses fallback
+  - Invalid image magic bytes → 400
+  - Image exceeds 20 MB limit → 413
+  - ValueError from photo_analyzer.analyse → 422
+  - quota/rate-limit error → 429
+  - Generic exception → 500, no detail leak
+  - log_usage called with analysis_type="photo"
 """
 
 from contextlib import ExitStack
@@ -44,7 +65,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.dependencies import get_optional_user
-from app.routers.analyse import _assert_video_magic, router
+from app.routers.analyse import _assert_image_magic, _assert_video_magic, router
 
 # ---------------------------------------------------------------------------
 # Minimal test app
@@ -64,11 +85,15 @@ _AVI_HEADER   = b"RIFF" b"\x00\x00\x00\x00" b"AVI" b"\x00"         # 12 bytes
 _MPEG_PS      = b"\x00\x00\x01\xba" + b"\x00" * 8
 _MPEG_ES      = b"\x00\x00\x01\xb3" + b"\x00" * 8
 _MPEG_TS      = b"\x47" + b"\x00" * 11
-_JPEG_HEADER  = b"\xff\xd8\xff\xe0" + b"\x00" * 8    # not a video format
+_JPEG_HEADER  = b"\xff\xd8\xff\xe0" + b"\x00" * 8
+_PNG_HEADER   = b"\x89PNG\r\n\x1a\n" + b"\x00" * 4
+_WEBP_HEADER  = b"RIFF" b"\x00\x00\x00\x00" b"WEBP"                 # 12 bytes
 _SMALL_HEADER = b"\x00" * 4                           # fewer than 8 bytes
 
 # Minimal "valid" MP4 content used as the full file body in endpoint tests
-_MP4_BYTES = _MP4_HEADER + b"\x00" * 100
+_MP4_BYTES  = _MP4_HEADER + b"\x00" * 100
+_JPEG_BYTES = _JPEG_HEADER + b"\x00" * 100
+_PNG_BYTES  = _PNG_HEADER  + b"\x00" * 100
 
 # Default mock result from gemini.analyse()
 _GEMINI_RESULT = {
@@ -79,6 +104,16 @@ _GEMINI_RESULT = {
     "materials_involved": ["washer"],
     "clarifying_questions": ["How old is the tap?"],
     "_token_usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+}
+
+# Default mock result from photo_analyzer.analyse()
+_PHOTO_RESULT = {
+    "likely_issue": "Dripping tap under the sink",
+    "urgency_score": 4,
+    "required_tools": ["basin wrench"],
+    "estimated_parts": ["tap washer"],
+    "image_feedback": [{"index": 0, "role": "Wide Shot", "quality": "ok", "note": None}],
+    "token_usage_estimate": {"prompt_tokens": 80, "completion_tokens": 40, "total_tokens": 120},
 }
 
 _META = {}   # empty metadata from extract_video_metadata by default
@@ -179,11 +214,11 @@ def _patches(gemini_result=None, meta=None, raises=None, supabase=None):
 # ---------------------------------------------------------------------------
 
 class TestValidation:
-    def test_non_video_content_type_rejected(self, client):
+    def test_unsupported_content_type_rejected(self, client):
         with _patches():
-            resp = _post(client, content_type="image/jpeg")
+            resp = _post(client, content_type="text/plain")
         assert resp.status_code == 400
-        assert "video" in resp.json()["detail"].lower()
+        assert "video" in resp.json()["detail"].lower() or "image" in resp.json()["detail"].lower()
 
     def test_invalid_magic_bytes_rejected(self, client):
         with _patches():
@@ -318,3 +353,170 @@ class TestErrorMapping:
             resp = _post(client)
         assert "SECRET" not in resp.json()["detail"]
         assert "db-password" not in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# _assert_image_magic unit tests
+# ---------------------------------------------------------------------------
+
+class TestAssertImageMagic:
+    def test_jpeg_accepted(self):
+        _assert_image_magic(_JPEG_HEADER)
+
+    def test_png_accepted(self):
+        _assert_image_magic(_PNG_HEADER)
+
+    def test_webp_accepted(self):
+        _assert_image_magic(_WEBP_HEADER)
+
+    def test_too_small_raises_400(self):
+        with pytest.raises(HTTPException) as exc_info:
+            _assert_image_magic(b"\xff\xd8")   # only 2 bytes
+        assert exc_info.value.status_code == 400
+
+    def test_unrecognised_bytes_raises_400(self):
+        with pytest.raises(HTTPException) as exc_info:
+            _assert_image_magic(_MP4_HEADER)   # video magic — not an image
+        assert exc_info.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Image upload helpers
+# ---------------------------------------------------------------------------
+
+def _patches_image(photo_result=None, raises=None):
+    """Return an ExitStack with photo_analyzer.analyse patched."""
+    if photo_result is None:
+        photo_result = dict(_PHOTO_RESULT)
+
+    async def _photo_fn(*_a, **_kw):
+        if raises is not None:
+            raise raises
+        return photo_result
+
+    stack = ExitStack()
+    stack.enter_context(patch("app.services.photo_analyzer.analyse", side_effect=_photo_fn))
+    mock_log = stack.enter_context(patch("app.services.usage_logger.log_usage"))
+    stack.mock_log = mock_log  # type: ignore[attr-defined]
+    return stack
+
+
+def _post_image(test_client, file_bytes=None, content_type="image/jpeg",
+                filename="photo.jpg", description=None):
+    data = {}
+    if description is not None:
+        data["description"] = description
+    return test_client.post(
+        "/analyse",
+        files={"file": (filename, file_bytes or _JPEG_BYTES, content_type)},
+        data=data,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Image endpoint tests
+# ---------------------------------------------------------------------------
+
+class TestImageUpload:
+    def test_jpeg_upload_returns_200(self, client):
+        with _patches_image():
+            resp = _post_image(client)
+        assert resp.status_code == 200
+        assert resp.json()["likely_issue"] == "Dripping tap under the sink"
+
+    def test_png_upload_returns_200(self, client):
+        with _patches_image():
+            resp = _post_image(client, file_bytes=_PNG_BYTES, content_type="image/png", filename="photo.png")
+        assert resp.status_code == 200
+
+    def test_webp_upload_returns_200(self, client):
+        webp_bytes = _WEBP_HEADER + b"\x00" * 100
+        with _patches_image():
+            resp = _post_image(client, file_bytes=webp_bytes, content_type="image/webp", filename="photo.webp")
+        assert resp.status_code == 200
+
+    def test_description_forwarded_when_long_enough(self, client):
+        captured = {}
+
+        async def _capture(images, description, trade_category):
+            captured["description"] = description
+            return dict(_PHOTO_RESULT)
+
+        with patch("app.services.photo_analyzer.analyse", side_effect=_capture), \
+             patch("app.services.usage_logger.log_usage"):
+            _post_image(client, description="Leaking pipe under kitchen sink")
+
+        assert captured["description"] == "Leaking pipe under kitchen sink"
+
+    def test_short_description_uses_fallback(self, client):
+        captured = {}
+
+        async def _capture(images, description, trade_category):
+            captured["description"] = description
+            return dict(_PHOTO_RESULT)
+
+        with patch("app.services.photo_analyzer.analyse", side_effect=_capture), \
+             patch("app.services.usage_logger.log_usage"):
+            _post_image(client, description="fix")   # < 10 chars
+
+        assert "Please analyse" in captured["description"]
+
+    def test_missing_description_uses_fallback(self, client):
+        captured = {}
+
+        async def _capture(images, description, trade_category):
+            captured["description"] = description
+            return dict(_PHOTO_RESULT)
+
+        with patch("app.services.photo_analyzer.analyse", side_effect=_capture), \
+             patch("app.services.usage_logger.log_usage"):
+            _post_image(client)   # no description
+
+        assert len(captured["description"]) >= 10
+
+    def test_invalid_image_magic_rejected(self, client):
+        with _patches_image():
+            resp = _post_image(client, file_bytes=_MP4_BYTES)   # MP4 bytes with image/jpeg content-type
+        assert resp.status_code == 400
+
+    def test_image_too_large_rejected(self, client):
+        with _patches_image(), patch("app.routers.analyse._MAX_IMAGE_BYTES", 10):
+            resp = _post_image(client)
+        assert resp.status_code == 413
+
+    def test_value_error_returns_422(self, client):
+        with _patches_image(raises=ValueError("blurry")):
+            resp = _post_image(client)
+        assert resp.status_code == 422
+
+    def test_quota_error_returns_429(self, client):
+        with _patches_image(raises=Exception("429 quota exceeded")):
+            resp = _post_image(client)
+        assert resp.status_code == 429
+
+    def test_rate_limit_error_returns_429(self, client):
+        with _patches_image(raises=Exception("rate limit reached")):
+            resp = _post_image(client)
+        assert resp.status_code == 429
+
+    def test_generic_error_returns_500(self, client):
+        with _patches_image(raises=Exception("internal crash")):
+            resp = _post_image(client)
+        assert resp.status_code == 500
+
+    def test_500_does_not_leak_detail(self, client):
+        with _patches_image(raises=Exception("SECRET key")):
+            resp = _post_image(client)
+        assert "SECRET" not in resp.json()["detail"]
+
+    def test_log_usage_called_with_photo_type(self, client):
+        with _patches_image() as stack:
+            _post_image(client)
+        stack.mock_log.assert_called_once_with(
+            analysis_type="photo",
+            model="gemini-2.5-flash",
+            user_id=None,
+            prompt_tokens=80,
+            completion_tokens=40,
+            total_tokens=120,
+        )
